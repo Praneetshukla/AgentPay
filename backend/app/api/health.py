@@ -6,7 +6,7 @@ router = APIRouter()
 
 
 class HealthResponse(BaseModel):
-    status: str
+    status: str = "ok"
     version: str
     environment: str
 
@@ -17,7 +17,7 @@ async def health_check():
     Health check endpoint for AgentPay Gateway.
     """
     return HealthResponse(
-        status="healthy",
+        status="ok",
         version=settings.VERSION,
         environment=settings.ENVIRONMENT
     )
