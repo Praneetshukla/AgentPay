@@ -1,58 +1,99 @@
 # AgentPay Gateway Architecture Specification
 
 > **Track 01 — AI Growth & Agentic Commerce (Razorpay Buildathon)**  
-> **Core Architectural Axiom:** *"LLM proposes; deterministic systems authorize."*
+> **Core Architectural Axiom:** *"The AI proposes; deterministic systems authorize."*
 
 ---
 
-## 1. Core Architectural Axiom
+## 1. Core Architectural Axiom & Threat Model
 
-The central security tenet of **AgentPay Gateway** is that an LLM / AI buyer agent may reason, discover products, negotiate, and **propose** actions, but it **NEVER directly authorizes or executes financial transactions**.
+The central security tenet of **AgentPay Gateway** is that an LLM / AI buyer agent is an **untrusted proposer**. It may discover products, formulate purchasing strategies, negotiate, and **propose** actions, but it **NEVER directly authorizes or executes financial transactions**.
 
 ```text
-┌─────────────────┐       Propose Action        ┌───────────────────────┐
-│  AI Buyer (LLM) │ ──────────────────────────> │ Catalog / Quote Engine│
-└─────────────────┘                             └──────────┬────────────┘
-                                                           │ Cart & Quote (HMAC Signed)
-                                                           ▼
-                                                ┌───────────────────────┐
-                                                │ Deterministic Policy  │
-                                                │ Gate (Spending/SKU)   │
-                                                └──────────┬────────────┘
-                                                           │ Validated
-                                                           ▼
-                                                ┌───────────────────────┐
-                                                │ Razorpay Test Mode API│
-                                                └──────────┬────────────┘
-                                                           │ Webhook Event
-                                                           ▼
-                                                ┌───────────────────────┐
-                                                │ Immutable Audit Ledger│
-                                                └───────────────────────┘
+┌─────────────────────────┐
+│     AI Buyer (LLM)      │
+└────────────┬────────────┘
+             │ 1. Discover products & capabilities (GET /.well-known/agent-catalog.json)
+             │ 2. Request Quote with desired SKUs & quantities (POST /agent/cart/quote)
+             ▼
+┌─────────────────────────┐
+│  Server-Authoritative   │ ──> Read prices, stock & versions from Database
+│      Quote Engine       │ ──> Calculate Subtotal, Discounts, Total, TTL
+└────────────┬────────────┘ ──> Compute SHA-256 HMAC Quote Signature
+             │
+             ▼
+┌─────────────────────────┐
+│  Deterministic Policy   │ ──> [Phase 3] Spending caps, SKU whitelist, Merchant trust
+│     Gate & Guard        │
+└────────────┬────────────┘
+             │ Validated & Signed
+             ▼
+┌─────────────────────────┐
+│  Quote Validation &     │ ──> POST /agent/cart/validate
+│    Inventory Safety     │ ──> Re-check real-time stock, version & signature integrity
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│  Razorpay Test Mode     │ ──> [Phase 4] Orders API (LLM has ZERO credential access)
+└────────────┬────────────┘
+             │ Webhook
+             ▼
+┌─────────────────────────┐
+│  Immutable Audit Ledger │ ──> [Phase 4] Append-only event history
+└─────────────────────────┘
 ```
 
 ---
 
-## 2. Component Breakdown & Implementation Status
+## 2. Server-Authoritative Commerce Protocol (Phase 2)
 
-| Component | Responsibility | Status |
-|---|---|---|
-| **Core & Settings (`backend/app/core/`)** | Centralized configuration, environment validation via Pydantic v2 Settings, and cryptographic signature primitives. | ✅ **Phase 1 Implemented** |
-| **Database Session & Base (`backend/app/db/`)** | SQLAlchemy 2.0 connection engine, session factory, declarative base, and PostgreSQL/SQLite support. | ✅ **Phase 1 Implemented** |
-| **Health API (`backend/app/api/`)** | Base routing, `/health` and `/` endpoints for orchestration probes and status checks. | ✅ **Phase 1 Implemented** |
-| **Frontend Foundation (`frontend/`)** | Next.js 15 App Router, TypeScript, Tailwind CSS with modular component architecture. | ✅ **Phase 1 Implemented** |
-| **Agent State Machine (`backend/app/agent/`)** | LangGraph agent loop, tool bindings, context memory, and action proposal generation. | ⏳ *Phase 2 Deferred* |
-| **Deterministic Guards (`backend/app/guards/`)** | Server-side spending limits, whitelist checks, velocity throttles, and HMAC cart validation. | ⏳ *Phase 2 Deferred* |
-| **Razorpay Gateway Client (`backend/app/razorpay/`)** | Isolated Razorpay Orders API client, payment signature verification, and idempotent webhook processors. | ⏳ *Phase 2 Deferred* |
-| **Audit Ledger (`backend/app/ledger/`)** | Immutable, append-only event trail of all proposals, decisions, gates, and payment confirmations. | ⏳ *Phase 2 Deferred* |
-| **Evaluation Harness (`evaluation/`)** | Automated stress tests for policy gating, cart tampering, and payment failure scenarios. | ⏳ *Phase 2 Deferred* |
+### Why Signing Alone Is Not Authoritative
+In AgentPay Gateway:
+1. **The Server Owns State:** Product unit prices, available inventory, currency, quote expiration timestamps, and HMAC secrets live exclusively on the server and within PostgreSQL.
+2. **Untrusted Proposer:** The client or LLM requests a quote by submitting only `sku` and `quantity`. If an LLM attempts to submit a price or discount, it is ignored/rejected by schema validation.
+3. **Deterministic Canonicalization:** The quote is canonicalized into sorted JSON keys (`build_canonical_quote_dict`) and hashed with `HMAC-SHA256(CART_HMAC_SECRET, canonical_bytes)`.
+4. **Stateful Re-Verification:** During validation (`POST /agent/cart/validate`), the server does not merely trust the HMAC signature; it re-checks live database inventory, product active status, and product version stamps to prevent race conditions or purchasing stale/tampered inventory.
 
 ---
 
-## 3. Financial Action Pipeline (Future Phases)
+## 3. Implemented API Endpoints (Phase 1 & Phase 2)
 
-1. **Discovery & Quoting:** AI Buyer interacts with machine-readable catalog endpoints. The server generates an authoritative quote and signs it with a cryptographic SHA-256 HMAC.
-2. **Policy Evaluation:** Before any order is placed, the proposed purchase passes through a deterministic Python policy engine (verifying budget bounds, SKU whitelists, merchant status, and velocity limits).
-3. **Cart Integrity Verification:** The server re-calculates the HMAC of the cart items and prices. If client/LLM tampered with line-item prices or totals, authorization fails immediately.
-4. **Order Execution:** Only server-side authorized orders invoke the Razorpay Orders API in Test Mode. The LLM never sees or touches API credentials.
-5. **Webhook State Machine & Ledger:** Razorpay webhooks trigger state updates idempotently. All events are recorded in an append-only audit ledger.
+| Endpoint | Method | Purpose | Implementation Status |
+|---|---|---|---|
+| `/health` | `GET` | Health check probe (`{"status": "ok"}`) | ✅ **Phase 1** |
+| `/.well-known/agent-catalog.json` | `GET` | Machine-readable merchant capability manifest | ✅ **Phase 2** |
+| `/agent/catalog` | `GET` | Filtered, searchable deterministic product catalog | ✅ **Phase 2** |
+| `/agent/products/{sku}` | `GET` | Authoritative single SKU lookup | ✅ **Phase 2** |
+| `/agent/cart/quote` | `POST` | Authoritative quote creation & cryptographic HMAC signing | ✅ **Phase 2** |
+| `/agent/cart/validate` | `POST` | Real-time quote validation & inventory re-verification | ✅ **Phase 2** |
+| `/agent/checkout` | `POST` | Policy-gated Razorpay order creation | ⏳ *Phase 3 / 4 Deferred* |
+| `/webhooks/razorpay` | `POST` | Idempotent payment webhook event processor | ⏳ *Phase 4 Deferred* |
+| `/ledger/events` | `GET` | Immutable audit trail query API | ⏳ *Phase 4 Deferred* |
+
+---
+
+## 4. Quote Lifecycle & State Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> Requested: AI Buyer sends SKU + Qty
+    Requested --> AuthoritativeQuoteCreated: Server checks stock, sets price, generates HMAC signature
+    AuthoritativeQuoteCreated --> Validated: Validation passes (Stock available, price unmutated, TTL valid)
+    AuthoritativeQuoteCreated --> Expired: Validation after TTL expires (QUOTE_EXPIRED)
+    AuthoritativeQuoteCreated --> InsufficientStock: Stock decreased below quote qty (INSUFFICIENT_STOCK)
+    AuthoritativeQuoteCreated --> StateChanged: Product price/version mutated (PRODUCT_STATE_CHANGED)
+    AuthoritativeQuoteCreated --> InvalidSignature: Candidate signature or payload tampered (INVALID_SIGNATURE)
+```
+
+---
+
+## 5. Machine-Readable Failure Codes
+
+When quote validation fails, the response includes explicit machine-readable failure reason codes:
+- `QUOTE_NOT_FOUND`: The quote ID does not exist.
+- `QUOTE_EXPIRED`: The 15-minute quote TTL has lapsed.
+- `INVALID_SIGNATURE`: Cryptographic HMAC SHA-256 verification failed (tampering detected).
+- `INSUFFICIENT_STOCK`: Real-time stock is less than quoted quantity.
+- `PRODUCT_UNAVAILABLE`: Product deactivated or deleted.
+- `PRODUCT_STATE_CHANGED`: Authoritative price or version changed since quote creation.

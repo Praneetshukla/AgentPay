@@ -3,14 +3,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.router import api_router
-from app.db.session import engine
+from app.db.session import engine, SessionLocal
 from app.db.base import Base
+from app.db.seed import seed_demo_catalog
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize database tables on startup
     Base.metadata.create_all(bind=engine)
+    # Seed deterministic demo catalog
+    with SessionLocal() as db:
+        seed_demo_catalog(db)
     yield
 
 
@@ -42,4 +46,5 @@ async def root():
         "version": settings.VERSION,
         "docs_url": "/docs",
         "health_url": "/health",
+        "agent_manifest": "/.well-known/agent-catalog.json"
     }
