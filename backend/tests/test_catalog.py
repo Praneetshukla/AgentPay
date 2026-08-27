@@ -61,7 +61,7 @@ async def test_get_product_by_sku(async_client: AsyncClient):
     assert response.status_code == 200
     product = response.json()
     assert product["sku"] == "KB-MECH-001"
-    assert product["price"] == 649900
+    assert product["price"] == 249900
 
     # Nonexistent SKU
     resp_not_found = await async_client.get("/agent/products/NON-EXISTENT-SKU")

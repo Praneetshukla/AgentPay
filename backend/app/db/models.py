@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from sqlalchemy import String, Integer, Boolean, DateTime, JSON, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -67,3 +67,31 @@ class QuoteItem(Base):
 
     quote: Mapped["Quote"] = relationship("Quote", back_populates="items")
     product: Mapped["Product"] = relationship("Product")
+
+
+class Policy(Base):
+    __tablename__ = "policies"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default="policy_demo")
+    merchant_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)
+    max_transaction_amount: Mapped[int] = mapped_column(Integer, nullable=False)  # in paise, e.g. 500000 = ₹5,000.00
+    max_cart_items: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    max_quantity_per_sku: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    allowed_categories: Mapped[List[str]] = mapped_column(JSON, default=list, nullable=False)
+    allowed_skus: Mapped[List[str]] = mapped_column(JSON, default=list, nullable=False)  # empty list = any non-blocked SKU allowed
+    blocked_skus: Mapped[List[str]] = mapped_column(JSON, default=list, nullable=False)
+    confirmation_threshold: Mapped[int] = mapped_column(Integer, nullable=False)  # in paise, e.g. 300000 = ₹3,000.00
+    policy_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )

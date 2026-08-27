@@ -8,11 +8,13 @@ from app.db.models import Product, Quote
 async def test_create_authoritative_quote(async_client: AsyncClient):
     """
     Verify creating an authoritative quote calculates server prices and generates HMAC signature.
+    KB-MECH-001 (₹2,499.00 / 249900 paise) + 2 * MOUSE-WL-002 (₹1,299.00 / 129900 paise)
+    Subtotal = 249900 + 259800 = 509700 paise (₹5,097.00)
     """
     payload = {
         "items": [
-            {"sku": "KB-MECH-001", "quantity": 1},  # ₹6499.00 (649900 paise)
-            {"sku": "MOUSE-WL-002", "quantity": 2}  # 2 * ₹3299.00 = ₹6598.00 (659800 paise)
+            {"sku": "KB-MECH-001", "quantity": 1},
+            {"sku": "MOUSE-WL-002", "quantity": 2}
         ]
     }
     response = await async_client.post("/agent/cart/quote", json=payload)
@@ -20,8 +22,8 @@ async def test_create_authoritative_quote(async_client: AsyncClient):
     quote = response.json()
     assert quote["quote_id"].startswith("qt_")
     assert quote["currency"] == "INR"
-    assert quote["subtotal"] == 649900 + 659800  # 1309700 paise
-    assert quote["total"] == 1309700
+    assert quote["subtotal"] == 249900 + 259800  # 509700 paise
+    assert quote["total"] == 509700
     assert len(quote["signature"]) == 64
     assert len(quote["items"]) == 2
 

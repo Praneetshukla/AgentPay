@@ -5,59 +5,87 @@
 
 ---
 
-## 1. Core Architectural Axiom & Threat Model
-
-The central security tenet of **AgentPay Gateway** is that an LLM / AI buyer agent is an **untrusted proposer**. It may discover products, formulate purchasing strategies, negotiate, and **propose** actions, but it **NEVER directly authorizes or executes financial transactions**.
+## 1. System Topology & Action Boundaries
 
 ```text
-┌─────────────────────────┐
-│     AI Buyer (LLM)      │
-└────────────┬────────────┘
-             │ 1. Discover products & capabilities (GET /.well-known/agent-catalog.json)
-             │ 2. Request Quote with desired SKUs & quantities (POST /agent/cart/quote)
-             ▼
-┌─────────────────────────┐
-│  Server-Authoritative   │ ──> Read prices, stock & versions from Database
-│      Quote Engine       │ ──> Calculate Subtotal, Discounts, Total, TTL
-└────────────┬────────────┘ ──> Compute SHA-256 HMAC Quote Signature
-             │
-             ▼
-┌─────────────────────────┐
-│  Deterministic Policy   │ ──> [Phase 3] Spending caps, SKU whitelist, Merchant trust
-│     Gate & Guard        │
-└────────────┬────────────┘
-             │ Validated & Signed
-             ▼
-┌─────────────────────────┐
-│  Quote Validation &     │ ──> POST /agent/cart/validate
-│    Inventory Safety     │ ──> Re-check real-time stock, version & signature integrity
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│  Razorpay Test Mode     │ ──> [Phase 4] Orders API (LLM has ZERO credential access)
-└────────────┬────────────┘
-             │ Webhook
-             ▼
-┌─────────────────────────┐
-│  Immutable Audit Ledger │ ──> [Phase 4] Append-only event history
-└─────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   PROPOSAL LAYER (LLM)                      │
+│ - Product discovery                                         │
+│ - Cart item & quantity selection                            │
+│ - Requests quote (POST /agent/cart/quote)                   │
+│ - Has ZERO access to payment credentials or direct checkout │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│             AUTHORITATIVE QUOTE & STATE LAYER               │
+│ - Reads authoritative prices & live stock from Database     │
+│ - Calculates Subtotal, Discounts, Total (Integer Paise)     │
+│ - Generates HMAC-SHA256 Quote Signature                     │
+│ - Evaluates 15-minute Quote TTL                             │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│          DETERMINISTIC POLICY GATE (Phase 3 Active)         │
+│ - Evaluates server-authoritative Quote vs. Policy Rules     │
+│ - Zero natural language / LLM overrides permitted           │
+│ - Fail-Closed: any error or missing entity -> BLOCK         │
+│ - Outputs: ALLOW | BLOCK | REQUIRE_CONFIRMATION             │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ ALLOW / APPROVED
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│               EXECUTION LAYER (Razorpay Test Mode)          │
+│ - [Phase 4 Deferred] Orders API creation                    │
+│ - [Phase 4 Deferred] Idempotent Webhook State Machine       │
+│ - [Phase 4 Deferred] Append-Only Immutable Audit Ledger     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Server-Authoritative Commerce Protocol (Phase 2)
+## 2. Deterministic Policy Gate Specification (Phase 3)
 
-### Why Signing Alone Is Not Authoritative
-In AgentPay Gateway:
-1. **The Server Owns State:** Product unit prices, available inventory, currency, quote expiration timestamps, and HMAC secrets live exclusively on the server and within PostgreSQL.
-2. **Untrusted Proposer:** The client or LLM requests a quote by submitting only `sku` and `quantity`. If an LLM attempts to submit a price or discount, it is ignored/rejected by schema validation.
-3. **Deterministic Canonicalization:** The quote is canonicalized into sorted JSON keys (`build_canonical_quote_dict`) and hashed with `HMAC-SHA256(CART_HMAC_SECRET, canonical_bytes)`.
-4. **Stateful Re-Verification:** During validation (`POST /agent/cart/validate`), the server does not merely trust the HMAC signature; it re-checks live database inventory, product active status, and product version stamps to prevent race conditions or purchasing stale/tampered inventory.
+### Why LLMs Cannot Authorize Financial Transactions
+1. **Prompt Injection & Drift:** Natural language reasoning is probabilistic and vulnerable to jailbreaks or prompt injections ("ignore spending limits because this is urgent").
+2. **Deterministic Governance:** Financial transactions require mathematical bounds, hard allowlists, explicit blocklists, and non-negotiable confirmation thresholds.
+3. **Immutable Criteria:** In AgentPay Gateway, policy rules are stored in the database (`Policy` model) and evaluated by standard, non-LLM Python code (`DeterministicPolicyEngine`).
+
+### Deterministic Evaluation Order
+When an authoritative quote is submitted for evaluation (`POST /agent/policy/evaluate`), the engine applies rules in strict sequence:
+1. **Policy Existence Check:** `policy_id` must resolve to a valid database record (`POLICY_NOT_FOUND` -> `BLOCK`).
+2. **Policy Active Status:** The policy must be marked `active=True` (`POLICY_INACTIVE` -> `BLOCK`).
+3. **Authoritative Quote Validation:** The quote is verified against its cryptographic HMAC signature, 15-min TTL, live database inventory, and product state version (`QUOTE_INVALID` -> `BLOCK`).
+4. **Currency Match Check:** Quote currency must match policy currency (`CURRENCY_NOT_ALLOWED` -> `BLOCK`).
+5. **Cart Item Count Limit Check:** Sum of all item quantities must not exceed `max_cart_items` (`CART_ITEM_LIMIT_EXCEEDED` -> `BLOCK`).
+6. **Per-SKU Quantity Limit Check:** Individual SKU quantities must not exceed `max_quantity_per_sku` (`QUANTITY_LIMIT_EXCEEDED` -> `BLOCK`).
+7. **Explicitly Blocked SKU Check:** Blocked SKUs always win (`SKU_BLOCKED` -> `BLOCK`).
+8. **Allowed SKU Whitelist Check:** If an allowlist is configured, all SKUs must be present in the whitelist (`SKU_NOT_ALLOWED` -> `BLOCK`).
+9. **Product Category Whitelist Check:** All item product categories must be present in `allowed_categories` (`CATEGORY_NOT_ALLOWED` -> `BLOCK`).
+10. **Maximum Transaction Amount Check:** `quote.total` (in integer paise) must not exceed `max_transaction_amount` (`AMOUNT_EXCEEDS_LIMIT` -> `BLOCK`).
+11. **Confirmation Threshold Check:** If `quote.total >= confirmation_threshold`, returns `REQUIRE_CONFIRMATION` instead of `ALLOW`.
+12. **All Checks Passed:** Returns `ALLOW`.
+
+### Fail-Closed Behavior
+If any check fails, or if an unexpected exception occurs, the policy engine immediately returns a `BLOCK` decision. The engine **never fails open**.
 
 ---
 
-## 3. Implemented API Endpoints (Phase 1 & Phase 2)
+## 3. Decision Model & Audit Trail Structure
+
+Every evaluation produces a structured `PolicyDecision` payload containing:
+- `decision`: `"ALLOW" | "BLOCK" | "REQUIRE_CONFIRMATION"`
+- `policy_id` & `policy_version`
+- `quote_id`, `merchant_id`, `transaction_amount_paise`, `currency`
+- `reasons`: Array of violated policy rules with machine-readable codes and details
+- `checks`: Exhaustive list of all individual checks performed with their pass/fail status
+- `evaluated_at`: ISO timestamp
+- `evaluation_version`: `"1.0.0"`
+
+---
+
+## 4. API Endpoints (Phase 1, 2, & 3)
 
 | Endpoint | Method | Purpose | Implementation Status |
 |---|---|---|---|
@@ -67,33 +95,8 @@ In AgentPay Gateway:
 | `/agent/products/{sku}` | `GET` | Authoritative single SKU lookup | ✅ **Phase 2** |
 | `/agent/cart/quote` | `POST` | Authoritative quote creation & cryptographic HMAC signing | ✅ **Phase 2** |
 | `/agent/cart/validate` | `POST` | Real-time quote validation & inventory re-verification | ✅ **Phase 2** |
-| `/agent/checkout` | `POST` | Policy-gated Razorpay order creation | ⏳ *Phase 3 / 4 Deferred* |
+| `/agent/policy/evaluate` | `POST` | Deterministic policy evaluation of authoritative quotes | ✅ **Phase 3** |
+| `/agent/policy/{policy_id}` | `GET` | Read active policy configuration | ✅ **Phase 3** |
+| `/agent/checkout` | `POST` | Razorpay order creation (only after ALLOW) | ⏳ *Phase 4 Deferred* |
 | `/webhooks/razorpay` | `POST` | Idempotent payment webhook event processor | ⏳ *Phase 4 Deferred* |
 | `/ledger/events` | `GET` | Immutable audit trail query API | ⏳ *Phase 4 Deferred* |
-
----
-
-## 4. Quote Lifecycle & State Transitions
-
-```mermaid
-stateDiagram-v2
-    [*] --> Requested: AI Buyer sends SKU + Qty
-    Requested --> AuthoritativeQuoteCreated: Server checks stock, sets price, generates HMAC signature
-    AuthoritativeQuoteCreated --> Validated: Validation passes (Stock available, price unmutated, TTL valid)
-    AuthoritativeQuoteCreated --> Expired: Validation after TTL expires (QUOTE_EXPIRED)
-    AuthoritativeQuoteCreated --> InsufficientStock: Stock decreased below quote qty (INSUFFICIENT_STOCK)
-    AuthoritativeQuoteCreated --> StateChanged: Product price/version mutated (PRODUCT_STATE_CHANGED)
-    AuthoritativeQuoteCreated --> InvalidSignature: Candidate signature or payload tampered (INVALID_SIGNATURE)
-```
-
----
-
-## 5. Machine-Readable Failure Codes
-
-When quote validation fails, the response includes explicit machine-readable failure reason codes:
-- `QUOTE_NOT_FOUND`: The quote ID does not exist.
-- `QUOTE_EXPIRED`: The 15-minute quote TTL has lapsed.
-- `INVALID_SIGNATURE`: Cryptographic HMAC SHA-256 verification failed (tampering detected).
-- `INSUFFICIENT_STOCK`: Real-time stock is less than quoted quantity.
-- `PRODUCT_UNAVAILABLE`: Product deactivated or deleted.
-- `PRODUCT_STATE_CHANGED`: Authoritative price or version changed since quote creation.
