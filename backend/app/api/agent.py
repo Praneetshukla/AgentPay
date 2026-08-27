@@ -6,7 +6,8 @@ from sqlalchemy import select, desc
 from app.db.session import get_db
 from app.db.models import AgentRun
 from app.agent.graph import AutonomousBuyerOrchestrator
-from app.agent.models import AgentBuyRequest, AgentRunResult, AgentTraceStep
+from app.agent.models import AgentBuyRequest, ConfirmCheckoutRequest, AgentRunResult, AgentTraceStep
+from app.razorpay.service import ExecutionService
 
 router = APIRouter(prefix="/agent", tags=["Autonomous AI Buyer"])
 
@@ -38,6 +39,9 @@ async def run_ai_buyer(
             step=s["step"],
             node=s["node"],
             action=s["action"],
+            started_at=s.get("started_at"),
+            finished_at=s.get("finished_at"),
+            duration_ms=s.get("duration_ms"),
             input_summary=s.get("input_summary"),
             output_summary=s.get("output_summary"),
             timestamp=s["timestamp"]
@@ -51,6 +55,7 @@ async def run_ai_buyer(
         user_goal=state["user_goal"],
         status=state["final_status"],
         selected_items=state.get("cart_proposal", []),
+        ranked_candidates=state.get("ranked_candidates", []),
         quote=state.get("quote_payload"),
         policy_decision={
             "decision": state.get("policy_decision"),
@@ -62,6 +67,24 @@ async def run_ai_buyer(
         explanation=state.get("explanation") or state.get("failure_reason") or "Completed execution",
         trace_steps=trace_steps
     )
+
+
+@router.post(
+    "/confirm",
+    status_code=status.HTTP_200_OK,
+    summary="Explicitly Approve and Execute a Confirmation-Held Transaction"
+)
+async def confirm_checkout(
+    request: ConfirmCheckoutRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Human-in-the-Loop Confirmation Gate:
+    Re-validates quote integrity, live stock, and policy rules before executing Razorpay order.
+    """
+    service = ExecutionService(db)
+    result = service.execute_checkout(quote_id=request.quote_id, policy_id=request.policy_id, allow_confirmation_override=True)
+    return result
 
 
 @router.get(

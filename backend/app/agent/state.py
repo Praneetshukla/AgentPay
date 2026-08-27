@@ -2,18 +2,28 @@ from typing import TypedDict, List, Dict, Any, Optional
 from app.agent.models import BuyerIntent, CartItemProposal, RecoveryAction, AgentTraceStep
 
 
+class AgentMemory(TypedDict):
+    previous_proposals: List[List[Dict[str, Any]]]
+    rejected_skus: List[str]
+    failed_reasons: List[str]
+    tried_strategies: List[str]
+
+
 class AgentState(TypedDict):
     request_id: str
     run_id: str
     user_goal: str
     policy_id: str
     
-    # Intent extraction
+    # Structured Intent Extraction
     buyer_intent: Optional[BuyerIntent]
     
-    # Discovery & Cart Planning
+    # Discovery & Deterministic Ranking
     discovered_products: List[Dict[str, Any]]
-    cart_proposal: List[Dict[str, Any]]  # [{"sku": "...", "quantity": 1}]
+    ranked_candidates: List[Dict[str, Any]]
+    
+    # Cart Planning & Optimization
+    cart_proposal: List[Dict[str, Any]]
     
     # Server Authoritative Quote State
     quote_id: Optional[str]
@@ -29,6 +39,9 @@ class AgentState(TypedDict):
     iteration_count: int
     recovery_count: int
     recovery_history: List[Dict[str, Any]]
+    
+    # Run-local bounded memory
+    memory: AgentMemory
     
     # Termination & Explainability
     final_status: str  # "COMPLETED", "REQUIRE_CONFIRMATION", "BLOCKED", "FAILED"

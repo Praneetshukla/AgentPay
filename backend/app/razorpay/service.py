@@ -84,13 +84,13 @@ class ExecutionService:
         )
         return transaction
 
-    def execute_checkout(self, quote_id: str, policy_id: str = "policy_demo") -> CheckoutExecuteResponse:
+    def execute_checkout(self, quote_id: str, policy_id: str = "policy_demo", allow_confirmation_override: bool = False) -> CheckoutExecuteResponse:
         """
         Strict Execution Boundary:
         1. Checks for existing transaction (Idempotency).
         2. Evaluates Deterministic Policy Gate.
         3. If Decision == BLOCK or REQUIRE_CONFIRMATION -> stops immediately, no Razorpay call.
-        4. If Decision == ALLOW -> Creates Transaction in CREATED status.
+        4. If Decision == ALLOW (or REQUIRE_CONFIRMATION with human approval) -> Creates Transaction in CREATED status.
         5. Calls Razorpay Test Mode client.
         6. Transitions status to PAYMENT_PENDING.
         7. Records all audit events.
@@ -158,7 +158,7 @@ class ExecutionService:
                 details={"reasons": [r.model_dump() for r in decision.reasons]}
             )
 
-        if decision.decision == PolicyDecisionType.REQUIRE_CONFIRMATION:
+        if decision.decision == PolicyDecisionType.REQUIRE_CONFIRMATION and not allow_confirmation_override:
             self.audit_service.record_event(
                 event_type="EXECUTION_HELD_CONFIRMATION_REQUIRED",
                 actor=actor,

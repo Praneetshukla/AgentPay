@@ -152,7 +152,12 @@ async def simulate_tamper_ledger(
 
     event = db.query(AuditEvent).order_by(AuditEvent.id.desc()).first()
     if not event:
-        raise HTTPException(status_code=400, detail="Audit ledger is empty, perform an action first")
+        audit_service = AuditLedgerService(db)
+        event = audit_service.record_event(
+            event_type="DEMO_INITIAL_EVENT",
+            actor="demo_sim_setup",
+            payload={"initial": True}
+        )
 
     original_payload = dict(event.payload)
     event.payload = {"tampered": True, "malicious_modification": "Altered amount from ₹2,499 to ₹0.01"}

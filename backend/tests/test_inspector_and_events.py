@@ -69,8 +69,25 @@ async def test_demo_failure_simulation_endpoints(async_client: AsyncClient):
     # 3. Tamper audit ledger
     resp_tamper = await async_client.post("/demo/simulate-tamper-ledger")
     assert resp_tamper.status_code == 200
-    assert resp_tamper.json()["tampered_event_id"] is not None
+    tampered_id = resp_tamper.json()["tampered_event_id"]
+    assert tampered_id is not None
 
-    # Restore DB state after test
+    # Restore DB state and fix tampered audit event after test
     with SessionLocal() as db:
         seed_demo_catalog(db)
+        from app.db.models import AuditEvent
+        from app.ledger.service import calculate_event_hash, normalize_datetime_iso
+        ev = db.query(AuditEvent).filter(AuditEvent.id == tampered_id).first()
+        if ev:
+            ev.payload = {"tampered": True}
+            ev.event_hash = calculate_event_hash(
+                event_id=ev.event_id,
+                transaction_id=ev.transaction_id,
+                quote_id=ev.quote_id,
+                event_type=ev.event_type,
+                actor=ev.actor,
+                payload=ev.payload,
+                previous_event_hash=ev.previous_event_hash,
+                created_at_iso=normalize_datetime_iso(ev.created_at)
+            )
+            db.commit()

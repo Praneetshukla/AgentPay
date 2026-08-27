@@ -6,12 +6,11 @@ from app.db.session import engine, SessionLocal
 from app.db.seed import seed_demo_catalog
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_test_database():
     """
-    Ensure database schema is created and demo catalog is seeded before tests run.
+    Ensure database schema is cleanly reset and demo catalog seeded before each test.
     """
-    # Clean reset database for hermetic test suite run
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:

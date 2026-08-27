@@ -7,7 +7,7 @@ import { ExecutionGraph } from '@/features/inspector/ExecutionGraph';
 import { PolicyGuardPanel } from '@/features/policy/PolicyGuardPanel';
 import { AuditLedgerView } from '@/features/ledger/AuditLedgerView';
 import { FailureLab } from '@/features/failures/FailureLab';
-import { fetchCatalog, fetchPolicy, createQuote, runAIBuyer, fetchAuditEvents, executeCheckout } from '@/lib/api';
+import { fetchCatalog, fetchPolicy, createQuote, runAIBuyer, fetchAuditEvents, executeCheckout, confirmCheckout } from '@/lib/api';
 import { AgentRunResult, AgentTraceStep } from '@/types/agent';
 import { ShieldCheck, Eye, RefreshCw, Terminal, Activity } from 'lucide-react';
 
@@ -118,6 +118,8 @@ export default function InspectorDashboardPage() {
     }
   };
 
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
   // AI Buyer Run trigger
   const handleRunAIBuyer = async (prompt: string) => {
     setAgentRunning(true);
@@ -136,6 +138,26 @@ export default function InspectorDashboardPage() {
       console.error('AI Buyer run error', err);
     } finally {
       setAgentRunning(false);
+    }
+  };
+
+  const handleConfirmCheckout = async (quoteId: string) => {
+    setConfirmLoading(true);
+    try {
+      const res = await confirmCheckout(quoteId);
+      if (res.success && latestRun) {
+        setLatestRun({
+          ...latestRun,
+          status: 'COMPLETED',
+          execution_result: res,
+          explanation: `Confirmation approved by user. Order ${res.razorpay_order_id} placed for ₹${(res.amount / 100).toFixed(2)}.`,
+        });
+      }
+      loadData();
+    } catch (err) {
+      console.error('Confirmation approval error', err);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -182,8 +204,10 @@ export default function InspectorDashboardPage() {
         <div className="lg:col-span-5 lg:pr-6 space-y-6">
           <AgentBuyerConsole
             onRunAgent={handleRunAIBuyer}
+            onConfirmCheckout={handleConfirmCheckout}
             isRunning={agentRunning}
             latestRun={latestRun}
+            confirmLoading={confirmLoading}
           />
 
           <Storefront

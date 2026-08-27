@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from langgraph.graph import StateGraph, END
 
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentMemory
 from app.agent.nodes import AgentNodes
 from app.guards.decisions import PolicyDecisionType, PolicyCheckCode
 from app.db.models import AgentRun
@@ -14,8 +14,8 @@ def should_route_after_policy(state: AgentState) -> str:
     """
     Conditional routing logic following policy gate evaluation:
     - ALLOW -> route to execute_checkout
-    - REQUIRE_CONFIRMATION -> route to hold_for_confirmation (END)
-    - BLOCK -> route to check_recoverable
+    - REQUIRE_CONFIRMATION -> route to hold_confirmation (END)
+    - BLOCK -> route to check_recovery
     """
     decision = state.get("policy_decision")
 
@@ -29,22 +29,19 @@ def should_route_after_policy(state: AgentState) -> str:
 
 def should_route_recovery(state: AgentState) -> str:
     """
-    Check if recovery attempts are bounded (< 3) and if failure is recoverable:
-    - Recoverable within 3 attempts -> route to handle_recovery
-    - Unrecoverable or exceeds 3 attempts -> route to stop_blocked (END)
+    Check if recovery attempts are bounded (< 3) and if failure is recoverable.
     """
     recovery_count = state.get("recovery_count", 0)
     reasons = state.get("policy_reasons", [])
     reason_codes = [r.get("code") for r in reasons]
 
-    # Non-recoverable policy blocks (e.g. currency not allowed or explicit blocked SKU without alternative)
+    # Non-recoverable policy blocks
     if PolicyCheckCode.CURRENCY_NOT_ALLOWED.value in reason_codes or PolicyCheckCode.POLICY_INACTIVE.value in reason_codes:
         return "stop_blocked"
 
     if recovery_count >= 3:
         return "stop_blocked"
 
-    # If cart is already empty, cannot recover
     if not state.get("cart_proposal"):
         return "stop_blocked"
 
@@ -70,13 +67,13 @@ def create_buyer_graph(db: Session) -> StateGraph:
     def hold_confirmation_node(state: AgentState) -> AgentState:
         state["final_status"] = "REQUIRE_CONFIRMATION"
         total = state.get("quote_payload", {}).get("total", 0)
-        state["explanation"] = f"Your cart total is ₹{total/100:,.2f}, which exceeds the instant authorization threshold. Merchant policy requires manual confirmation before payment."
+        state["explanation"] = f"Your proposed cart total is ₹{total/100:,.2f}, which requires merchant confirmation before payment authorization."
         return state
 
     def stop_blocked_node(state: AgentState) -> AgentState:
         state["final_status"] = "BLOCKED"
         reasons = [r.get("message") for r in state.get("policy_reasons", [])]
-        state["explanation"] = f"Purchase request blocked by policy: {'; '.join(reasons) if reasons else 'Exceeded budget or unrecoverable constraint'}."
+        state["explanation"] = f"Purchase request blocked by policy: {'; '.join(reasons) if reasons else 'Exceeded spending limits or unrecoverable constraint'}."
         return state
 
     workflow.add_node("hold_confirmation", hold_confirmation_node)
@@ -96,7 +93,7 @@ def create_buyer_graph(db: Session) -> StateGraph:
         {
             "execute_checkout": "execute_checkout",
             "hold_confirmation": "hold_confirmation",
-            "check_recovery": "handle_recovery"  # Tested via recovery router
+            "check_recovery": "handle_recovery"
         }
     )
 
@@ -105,7 +102,7 @@ def create_buyer_graph(db: Session) -> StateGraph:
         "handle_recovery",
         should_route_recovery,
         {
-            "handle_recovery": "request_quote",  # loops back to quote
+            "handle_recovery": "request_quote",
             "stop_blocked": "stop_blocked"
         }
     )
@@ -137,6 +134,7 @@ class AutonomousBuyerOrchestrator:
             "policy_id": policy_id,
             "buyer_intent": None,
             "discovered_products": [],
+            "ranked_candidates": [],
             "cart_proposal": [],
             "quote_id": None,
             "quote_payload": None,
@@ -147,6 +145,12 @@ class AutonomousBuyerOrchestrator:
             "iteration_count": 0,
             "recovery_count": 0,
             "recovery_history": [],
+            "memory": {
+                "previous_proposals": [],
+                "rejected_skus": [],
+                "failed_reasons": [],
+                "tried_strategies": []
+            },
             "final_status": "RUNNING",
             "explanation": "",
             "failure_reason": None,

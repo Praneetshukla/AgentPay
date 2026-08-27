@@ -4,18 +4,55 @@ export interface BuyerIntent {
   user_goal: string;
   target_categories: string[];
   budget_limit_paise: number | null;
-  requested_quantities: Record<string, number>;
-  preferences: string[];
-  priority: string;
+  currency?: string;
+  required_features?: string[];
+  excluded_categories?: string[];
+  excluded_skus?: string[];
+  requested_quantities?: Record<string, number>;
+  urgency?: string;
+  priority?: string;
+  preferences?: string[];
+}
+
+export interface ProductScoringBreakdown {
+  relevance_score: number;
+  category_match_score: number;
+  availability_score: number;
+  budget_fit_score: number;
+  composite_score: number;
+  rationale: string;
+}
+
+export interface ProductCandidate {
+  sku: string;
+  name: string;
+  category: string;
+  price_paise: number;
+  stock_quantity: number;
+  active: boolean;
+  scoring?: ProductScoringBreakdown;
 }
 
 export interface AgentTraceStep {
   step: number;
   node: string;
   action: string;
+  started_at?: string;
+  finished_at?: string;
+  duration_ms?: number;
   input_summary?: Record<string, any>;
   output_summary?: Record<string, any>;
   timestamp: string;
+}
+
+export interface RecoveryAction {
+  attempt: number;
+  strategy: string;
+  reason: string;
+  before_total_paise?: number;
+  after_total_paise?: number;
+  affected_skus?: string[];
+  adjustments_made?: Record<string, any>;
 }
 
 export interface AgentRunResult {
@@ -29,6 +66,7 @@ export interface AgentRunResult {
     name?: string;
     price_paise?: number;
   }>;
+  ranked_candidates?: ProductCandidate[];
   quote?: {
     quote_id: string;
     subtotal: number;
@@ -59,12 +97,7 @@ export interface AgentRunResult {
     amount?: number;
     currency?: string;
   };
-  recovery_history: Array<{
-    attempt: number;
-    strategy: string;
-    reason: string;
-    adjustments_made: Record<string, any>;
-  }>;
+  recovery_history: RecoveryAction[];
   explanation: string;
   trace_steps: AgentTraceStep[];
 }

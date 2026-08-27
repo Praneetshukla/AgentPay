@@ -201,15 +201,31 @@ async def test_audit_ledger_chain_verification_and_tamper_detection(async_client
     # 2. Tamper with latest audit event in DB
     with SessionLocal() as db:
         event = db.query(AuditEvent).order_by(AuditEvent.id.desc()).first()
+        if not event:
+            audit_service = AuditLedgerService(db)
+            event = audit_service.record_event(
+                event_type="DEMO_TEST_EVENT",
+                actor="test_user",
+                payload={"sample": "data"}
+            )
         assert event is not None
         tampered_id = event.id
+        original_payload = event.payload
         event.payload = {"tampered_key": "tampered_value"}
         db.commit()
 
-    # 3. Check broken chain
-    res_verify2 = await async_client.get("/ledger/verify-chain")
-    assert res_verify2.status_code == 200
-    data2 = res_verify2.json()
-    assert data2["valid"] is False
-    assert "Tampered event payload" in data2["error_reason"]
-    assert data2["failed_event_id"] == tampered_id
+    try:
+        # 3. Check broken chain
+        res_verify2 = await async_client.get("/ledger/verify-chain")
+        assert res_verify2.status_code == 200
+        data2 = res_verify2.json()
+        assert data2["valid"] is False
+        assert "Tampered event payload" in data2["error_reason"]
+        assert data2["failed_event_id"] == tampered_id
+    finally:
+        # Restore event payload so subsequent tests see a valid ledger chain
+        with SessionLocal() as db:
+            ev = db.query(AuditEvent).filter(AuditEvent.id == tampered_id).first()
+            if ev:
+                ev.payload = original_payload
+                db.commit()

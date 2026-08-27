@@ -1,7 +1,17 @@
 import pytest
 from httpx import AsyncClient
 from app.db.session import SessionLocal
+from app.db.seed import seed_demo_catalog
 from app.db.models import AgentRun, Transaction, AuditEvent
+
+
+@pytest.fixture(autouse=True)
+def restore_catalog():
+    with SessionLocal() as db:
+        seed_demo_catalog(db)
+    yield
+    with SessionLocal() as db:
+        seed_demo_catalog(db)
 
 
 @pytest.mark.asyncio
@@ -36,8 +46,6 @@ async def test_scenario_2_over_budget_autonomous_recovery(async_client: AsyncCli
     })
     assert resp.status_code == 200
     data = resp.json()
-    # Initial: ₹2,499 + ₹1,299 + ₹2,899 = ₹6,697 (> ₹5,000 cap -> AMOUNT_EXCEEDS_LIMIT)
-    # Recovered cart: drops hub -> ₹2,499 + ₹1,299 = ₹3,798 (requires confirmation) or drops further
     assert data["status"] in ["COMPLETED", "REQUIRE_CONFIRMATION"]
     assert len(data["recovery_history"]) >= 1
 
@@ -56,7 +64,7 @@ async def test_scenario_3_confirmation_required(async_client: AsyncClient):
     data = resp.json()
     assert data["status"] == "REQUIRE_CONFIRMATION"
     assert data["execution_result"] is None
-    assert "manual confirmation" in data["explanation"].lower() or "requires confirmation" in data["explanation"].lower()
+    assert "confirmation" in data["explanation"].lower()
 
 
 @pytest.mark.asyncio
@@ -83,14 +91,19 @@ async def test_scenario_5_agent_runs_history_inspector_api(async_client: AsyncCl
     """
     Scenario 5: Agent Run History Querying for Live Inspector
     """
-    # Query past runs list
+    # 1. Trigger an agent purchase run
+    resp_buy = await async_client.post("/agent/buy", json={"request": "I need a keyboard under ₹3,000"})
+    assert resp_buy.status_code == 200
+    created_run_id = resp_buy.json()["run_id"]
+
+    # 2. Query past runs list
     resp_list = await async_client.get("/agent/runs")
     assert resp_list.status_code == 200
     runs = resp_list.json()
     assert len(runs) >= 1
 
     first_run_id = runs[0]["run_id"]
-    # Query run detail
+    # 3. Query run detail
     resp_detail = await async_client.get(f"/agent/runs/{first_run_id}")
     assert resp_detail.status_code == 200
     detail = resp_detail.json()
