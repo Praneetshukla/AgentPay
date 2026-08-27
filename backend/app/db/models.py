@@ -172,3 +172,25 @@ class AuditEvent(Base):
         nullable=False,
         index=True
     )
+
+
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: f"run_{uuid.uuid4().hex[:16]}")
+    request_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    user_goal: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="RUNNING", nullable=False, index=True)  # COMPLETED, REQUIRES_CONFIRMATION, BLOCKED, FAILED
+    quote_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    transaction_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    iteration_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    recovery_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    final_decision: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    trace_log: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

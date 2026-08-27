@@ -9,11 +9,12 @@
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                   PROPOSAL LAYER (LLM)                      │
-│ - Product discovery                                         │
-│ - Cart item & quantity selection                            │
-│ - Requests quote (POST /agent/cart/quote)                   │
-│ - Has ZERO access to payment credentials or direct checkout │
+│                 AUTONOMOUS AI BUYER (LangGraph)             │
+│ - Natural language purchase intent parsing                  │
+│ - Agent-readable catalog discovery & SKU inspection         │
+│ - Cart proposal formulation & bounded autonomous recovery   │
+│ - Requests authoritative quote (POST /agent/cart/quote)     │
+│ - ZERO direct access to Razorpay API or payment credentials │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                ▼
@@ -63,37 +64,31 @@
 
 ---
 
-## 2. Financial Action Execution Flow (Phase 4 Active)
-
-1. **Execution Request:** Caller provides only `quote_id` (`POST /agent/checkout/execute`). No client-supplied prices, totals, or currencies are accepted.
-2. **Idempotency Gate:** If a transaction already exists for the quote ID, the existing transaction is returned without creating duplicate Razorpay orders.
-3. **Deterministic Policy Check:** The quote is validated against cryptographic signatures, live inventory, active status, and spending policies.
-   - If `BLOCK` $\rightarrow$ stops immediately; Razorpay is **never** invoked.
-   - If `REQUIRE_CONFIRMATION` $\rightarrow$ execution holds; Razorpay is **never** invoked.
-   - If `ALLOW` $\rightarrow$ transaction is created in `CREATED` status.
-4. **Razorpay Orders API:** An order is created in Razorpay Test Mode using the authoritative database amount in integer paise. The transaction transitions to `PAYMENT_PENDING`.
-5. **Webhook Lifecycle:** Razorpay sends `payment.captured` or `payment.failed`. The webhook endpoint verifies HMAC signatures, ensures amount and currency consistency, and transitions transaction status to `PAID` or `FAILED`.
-6. **Tamper-Evident Audit Ledger:** Every state transition and decision produces a hash-chained `AuditEvent` (`previous_event_hash` $\rightarrow$ `event_hash`).
-
----
-
-## 3. Transaction State Machine
+## 2. Autonomous AI Buyer LangGraph State Machine (Phase 5 Active)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CREATED: Policy ALLOW
-    CREATED --> AUTHORIZED: System prepares execution
-    AUTHORIZED --> PAYMENT_PENDING: Razorpay Order created
-    PAYMENT_PENDING --> PAID: Webhook payment.captured
-    PAYMENT_PENDING --> FAILED: Webhook payment.failed
-    PAYMENT_PENDING --> EXPIRED: Quote TTL lapsed
-    PAID --> [*]: Terminal State (No backwards transitions)
-    FAILED --> [*]: Terminal State
+    [*] --> ParseIntent: Natural Language Goal
+    ParseIntent --> DiscoverCatalog: Target categories
+    DiscoverCatalog --> PlanCart: Filter in-stock SKUs
+    PlanCart --> RequestQuote: Post cart proposal
+    RequestQuote --> EvaluatePolicy: Signed Quote
+    
+    EvaluatePolicy --> ExecuteCheckout: Decision == ALLOW
+    EvaluatePolicy --> HoldConfirmation: Decision == REQUIRE_CONFIRMATION
+    EvaluatePolicy --> HandleRecovery: Decision == BLOCK
+    
+    HandleRecovery --> RequestQuote: Recovery Attempt < 3
+    HandleRecovery --> StopBlocked: Recovery Exceeded (>= 3)
+    
+    ExecuteCheckout --> [*]: Order Placed
+    HoldConfirmation --> [*]: Awaiting Confirmation
+    StopBlocked --> [*]: Blocked by Policy
 ```
 
 ---
 
-## 4. API Endpoints (Phase 1, 2, 3, & 4)
+## 3. Complete API Specification
 
 | Endpoint | Method | Purpose | Implementation Status |
 |---|---|---|---|
@@ -109,4 +104,6 @@ stateDiagram-v2
 | `/webhooks/razorpay` | `POST` | Idempotent payment webhook event processor | ✅ **Phase 4** |
 | `/ledger/events` | `GET` | Immutable audit trail query API | ✅ **Phase 4** |
 | `/ledger/verify-chain` | `GET` | Cryptographic audit hash chain integrity verification | ✅ **Phase 4** |
-| `/agent/chat` | `POST` | LangGraph AI Buyer autonomous loop | ⏳ *Phase 5 Deferred* |
+| `/agent/buy` | `POST` | Autonomous AI Buyer purchase execution endpoint | ✅ **Phase 5** |
+| `/agent/runs` | `GET` | List past AI Buyer runs for Inspector Dashboard | ✅ **Phase 5** |
+| `/agent/runs/{run_id}` | `GET` | Retrieve detailed node-by-node execution trace | ✅ **Phase 5** |
