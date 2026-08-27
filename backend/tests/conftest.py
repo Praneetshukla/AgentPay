@@ -11,6 +11,8 @@ def setup_test_database():
     """
     Ensure database schema is created and demo catalog is seeded before tests run.
     """
+    # Clean reset database for hermetic test suite run
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_demo_catalog(db)

@@ -1,9 +1,32 @@
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Optional, Dict, Any, List
-from sqlalchemy import String, Integer, Boolean, DateTime, JSON, ForeignKey, Text
+from sqlalchemy import String, Integer, Boolean, DateTime, JSON, ForeignKey, Text, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
+
+
+class TransactionStatus(str, Enum):
+    CREATED = "CREATED"
+    AUTHORIZED = "AUTHORIZED"
+    PAYMENT_PENDING = "PAYMENT_PENDING"
+    PAID = "PAID"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+
+
+# Valid State Transitions
+VALID_STATUS_TRANSITIONS: Dict[TransactionStatus, List[TransactionStatus]] = {
+    TransactionStatus.CREATED: [TransactionStatus.AUTHORIZED, TransactionStatus.FAILED, TransactionStatus.CANCELLED],
+    TransactionStatus.AUTHORIZED: [TransactionStatus.PAYMENT_PENDING, TransactionStatus.CANCELLED, TransactionStatus.FAILED],
+    TransactionStatus.PAYMENT_PENDING: [TransactionStatus.PAID, TransactionStatus.FAILED, TransactionStatus.EXPIRED, TransactionStatus.CANCELLED],
+    TransactionStatus.PAID: [],  # Terminal state: Cannot transition backwards
+    TransactionStatus.FAILED: [],  # Terminal state
+    TransactionStatus.CANCELLED: [],  # Terminal state
+    TransactionStatus.EXPIRED: []  # Terminal state
+}
 
 
 class Product(Base):
@@ -94,4 +117,58 @@ class Policy(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
+    )
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: f"tx_{uuid.uuid4().hex[:16]}")
+    quote_id: Mapped[str] = mapped_column(String(36), ForeignKey("quotes.id"), unique=True, nullable=False, index=True)
+    policy_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    policy_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    razorpay_order_id: Mapped[Optional[str]] = mapped_column(String(64), unique=True, nullable=True, index=True)
+    razorpay_payment_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)  # in paise
+    currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)
+    status: Mapped[TransactionStatus] = mapped_column(
+        SQLEnum(TransactionStatus),
+        default=TransactionStatus.CREATED,
+        nullable=False,
+        index=True
+    )
+    failure_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    metadata_payload: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+
+    quote: Mapped["Quote"] = relationship("Quote")
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, default=lambda: f"evt_{uuid.uuid4().hex[:16]}", index=True)
+    transaction_id: Mapped[Optional[str]] = mapped_column(String(64), ForeignKey("transactions.id"), nullable=True, index=True)
+    quote_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    actor: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
+    previous_event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True
     )
