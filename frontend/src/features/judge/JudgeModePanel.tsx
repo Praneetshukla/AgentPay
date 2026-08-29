@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ProofCenter } from "./ProofCenter";
 import { ShieldCheck, ShieldAlert, Zap, AlertTriangle, Play, RefreshCw, CheckCircle2, XCircle, Terminal, Layers } from 'lucide-react';
 import { runAIBuyer, simulateStockChange, simulateTamperLedger, verifyAuditChain } from '@/lib/api';
 
 interface JudgeModeProps {
-  onActionComplete: () => void;
+  onActionComplete?: () => void;
 }
 
 export function JudgeModePanel({ onActionComplete }: JudgeModeProps) {
+  const [running, setRunning] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"proof" | "demo">("proof");
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [demoLog, setDemoLog] = useState<{
     title: string;
@@ -32,7 +36,7 @@ export function JudgeModePanel({ onActionComplete }: JudgeModeProps) {
         unauthorizedActions: 0,
         auditEvent: 'TRANSACTION_CREATED & RAZORPAY_ORDER_CREATED (Hash Chained)'
       });
-      onActionComplete();
+      onActionComplete?.();
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -53,7 +57,7 @@ export function JudgeModePanel({ onActionComplete }: JudgeModeProps) {
         unauthorizedActions: 0,
         auditEvent: 'EXECUTION_REJECTED_POLICY_BLOCKED (Recorded in Ledger)'
       });
-      onActionComplete();
+      onActionComplete?.();
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -75,7 +79,7 @@ export function JudgeModePanel({ onActionComplete }: JudgeModeProps) {
         unauthorizedActions: 0,
         auditEvent: 'RECOVERY_STRATEGY_EXECUTED & QUOTE_RECREATED'
       });
-      onActionComplete();
+      onActionComplete?.();
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -97,7 +101,7 @@ export function JudgeModePanel({ onActionComplete }: JudgeModeProps) {
         unauthorizedActions: 0,
         auditEvent: 'AUDIT_INTEGRITY_VERIFICATION_FAILED'
       });
-      onActionComplete();
+      onActionComplete?.();
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -106,12 +110,14 @@ export function JudgeModePanel({ onActionComplete }: JudgeModeProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div className="space-y-6">
+      <ProofCenter />
+
+      <div className="flex items-center justify-between border-b border-slate-800 pb-3 pt-4">
         <div>
           <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
             <Zap className="w-4 h-4 text-indigo-400" />
-            Unified Judge Mode — Competition Demonstration Suite
+            Live Scenarios & Guided Workflow
           </h3>
           <p className="text-[11px] text-slate-400">1-Click live interactive proofs demonstrating end-to-end Track 01 security invariants.</p>
         </div>

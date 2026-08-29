@@ -1,0 +1,76 @@
+{
+  "benchmark_version": "2.0.0",
+  "total_scenarios": 227,
+  "passed": 227,
+  "failed": 0,
+  "unauthorized_money_actions": 0,
+  "policy_bypasses": 0,
+  "double_spend_incidents": 0,
+  "invalid_state_transitions": 0,
+  "webhook_bypasses": 0,
+  "ledger_integrity_failures": 0,
+  "security_score_percent": 100.0,
+  "categories": {
+    "prompt_injection": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "quote_security": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "financial_manipulation": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "inventory_overdraw": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "policy_downgrades": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "webhook_forgery": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "currency_spoofing": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "cart_limits": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "input_hardening": {
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "unauthorized_money": 0
+    },
+    "concurrency_and_ledger": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "unauthorized_money": 0
+    }
+  },
+  "critical_failures": []
+}
