@@ -169,3 +169,30 @@ async def simulate_tamper_ledger(
         "tampered_payload": event.payload,
         "message": "Audit event altered. Run GET /ledger/verify-chain to verify cryptographic failure."
     }
+
+
+@router.post(
+    "/reset",
+    status_code=status.HTTP_200_OK,
+    summary="[Demo Only] Reset Demo State, Stock, Policies, and Ledger"
+)
+async def reset_demo_state(
+    db: Session = Depends(get_db)
+):
+    """Restores deterministic baseline catalog and stock for judge presentations."""
+    if settings.ENVIRONMENT == "production":
+        raise HTTPException(status_code=403, detail="Reset is disabled in production mode")
+
+    from app.db.base import Base
+    import app.db.models
+    from app.db.session import engine
+    from app.db.seed import seed_demo_catalog
+
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    seed_demo_catalog(db)
+
+    return {
+        "status": "reset_complete",
+        "message": "Database, catalog, policies, and ledger successfully reset to baseline."
+    }
