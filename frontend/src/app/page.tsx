@@ -7,9 +7,10 @@ import { ExecutionGraph } from '@/features/inspector/ExecutionGraph';
 import { PolicyGuardPanel } from '@/features/policy/PolicyGuardPanel';
 import { AuditLedgerView } from '@/features/ledger/AuditLedgerView';
 import { FailureLab } from '@/features/failures/FailureLab';
+import { JudgeModePanel } from '@/features/judge/JudgeModePanel';
 import { fetchCatalog, fetchPolicy, createQuote, runAIBuyer, fetchAuditEvents, executeCheckout, confirmCheckout } from '@/lib/api';
 import { AgentRunResult, AgentTraceStep } from '@/types/agent';
-import { ShieldCheck, Eye, RefreshCw, Terminal, Activity } from 'lucide-react';
+import { ShieldCheck, Eye, RefreshCw, Terminal, Activity, Zap } from 'lucide-react';
 
 export default function InspectorDashboardPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -21,7 +22,7 @@ export default function InspectorDashboardPage() {
   const [latestRun, setLatestRun] = useState<AgentRunResult | null>(null);
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [liveTraceSteps, setLiveTraceSteps] = useState<AgentTraceStep[]>([]);
-  const [activeTab, setActiveTab] = useState<'graph' | 'policy' | 'ledger' | 'failures'>('graph');
+  const [activeTab, setActiveTab] = useState<'graph' | 'policy' | 'ledger' | 'failures' | 'judge'>('judge');
 
   // Load initial catalog, policy, and audit records
   const loadData = useCallback(async () => {
@@ -228,6 +229,17 @@ export default function InspectorDashboardPage() {
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
               <button
+                onClick={() => setActiveTab('judge')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                  activeTab === 'judge'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                Judge Mode
+              </button>
+              <button
                 onClick={() => setActiveTab('graph')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   activeTab === 'graph'
@@ -235,7 +247,7 @@ export default function InspectorDashboardPage() {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                1. Execution Graph
+                1. Graph
               </button>
               <button
                 onClick={() => setActiveTab('policy')}
@@ -245,7 +257,7 @@ export default function InspectorDashboardPage() {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                2. Policy Guard
+                2. Policy
               </button>
               <button
                 onClick={() => setActiveTab('ledger')}
@@ -255,7 +267,7 @@ export default function InspectorDashboardPage() {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                3. Audit Ledger
+                3. Ledger
               </button>
               <button
                 onClick={() => setActiveTab('failures')}
@@ -276,6 +288,10 @@ export default function InspectorDashboardPage() {
 
           {/* Tab Content Display */}
           <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-md shadow-2xl min-h-[500px]">
+            {activeTab === 'judge' && (
+              <JudgeModePanel onActionComplete={loadData} />
+            )}
+
             {activeTab === 'graph' && (
               <ExecutionGraph
                 traceSteps={liveTraceSteps.length > 0 ? liveTraceSteps : latestRun?.trace_steps || []}

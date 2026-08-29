@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from app.db.models import Quote, Policy, Transaction, TransactionStatus, VALID_STATUS_TRANSITIONS
+from app.db.models import Product, Quote, Policy, Transaction, TransactionStatus, VALID_STATUS_TRANSITIONS
 from app.guards.policy import DeterministicPolicyEngine
 from app.guards.decisions import PolicyDecisionType
 from app.ledger.service import AuditLedgerService
@@ -245,6 +245,37 @@ class ExecutionService:
                 transaction_id=transaction.id,
                 quote_id=quote.id
             )
+
+            # 6b. Atomic inventory consumption at database level
+            # Uses atomic UPDATE ... WHERE stock_quantity >= qty and version check
+            for item in quote.items:
+                row_updated = self.db.query(Product).filter(
+                    Product.sku == item.sku,
+                    Product.stock_quantity >= item.quantity,
+                    Product.active == True
+                ).update({
+                    Product.stock_quantity: Product.stock_quantity - item.quantity,
+                    Product.version: Product.version + 1
+                })
+
+                if row_updated == 0:
+                    # Concurrency collision: another transaction consumed inventory in the race
+                    self.db.rollback()
+                    self.transition_transaction_status(
+                        transaction,
+                        TransactionStatus.FAILED,
+                        actor=actor,
+                        reason=f"Concurrent inventory exhaustion for SKU {item.sku}"
+                    )
+                    return CheckoutExecuteResponse(
+                        success=False,
+                        status="FAILED",
+                        decision="BLOCK",
+                        reason="INSUFFICIENT_STOCK",
+                        details={"message": f"Inventory was exhausted by a concurrent buyer for SKU {item.sku}"}
+                    )
+
+            self.db.commit()
 
             return CheckoutExecuteResponse(
                 success=True,

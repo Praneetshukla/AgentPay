@@ -5,7 +5,7 @@
 
 ---
 
-## 1. System Topology & Action Boundaries
+## 1. System Topology & Action Boundaries (Phase 8 Production Hardened)
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -38,9 +38,9 @@
                                │ ALLOW (or human /agent/confirm)
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│       FINANCIAL EXECUTION LAYER (Razorpay Test Mode)        │
+│   FINANCIAL EXECUTION BOUNDARY & CONCURRENCY LAYER          │
 │ - POST /agent/checkout/execute (Only quote_id accepted)     │
-│ - POST /agent/confirm (Independent re-validation)           │
+│ - Atomic DB Stock Deduction: UPDATE ... WHERE stock >= qty  │
 │ - Creates Transaction record in CREATED status              │
 │ - Creates Razorpay Test Mode Order via Orders API           │
 │ - Transitions status to PAYMENT_PENDING                     │
@@ -66,76 +66,40 @@
 
 ---
 
-## 2. Autonomous AI Buyer LangGraph State Machine (Phase 7 Active)
+## 2. Concurrency & Race Condition Strategy
 
-```mermaid
-stateDiagram-v2
-    [*] --> ParseIntent: Natural Language Goal
-    ParseIntent --> DiscoverCatalog: Structured Intent Model
-    DiscoverCatalog --> PlanCart: Ranked Candidates & Suitability
-    PlanCart --> RequestQuote: Post Cart Proposal
-    RequestQuote --> EvaluatePolicy: Signed HMAC Quote
-    
-    EvaluatePolicy --> ExecuteCheckout: Decision == ALLOW
-    EvaluatePolicy --> HoldConfirmation: Decision == REQUIRE_CONFIRMATION
-    EvaluatePolicy --> HandleRecovery: Decision == BLOCK
-    
-    HandleRecovery --> RequestQuote: Multi-Strategy Ordering (Attempt < 3)
-    HandleRecovery --> StopBlocked: Recovery Exceeded (>= 3)
-    
-    HoldConfirmation --> HumanApproval: User Approves via POST /agent/confirm
-    HumanApproval --> ExecuteCheckout: Re-verified & Authorized
-    
-    ExecuteCheckout --> [*]: Order Placed (Razorpay Test Mode)
-    HoldConfirmation --> [*]: Awaiting Confirmation
-    StopBlocked --> [*]: Blocked by Policy
+In high-concurrency commerce environments (multiple agents competing for limited stock), optimistic reads in agent memory cannot be trusted. 
+
+**Database-Level Atomic Execution:**
+```python
+# Atomically decrement stock only if sufficient inventory exists
+row_updated = db.query(Product).filter(
+    Product.sku == item.sku,
+    Product.stock_quantity >= item.quantity,
+    Product.active == True
+).update({
+    Product.stock_quantity: Product.stock_quantity - item.quantity,
+    Product.version: Product.version + 1
+})
+
+if row_updated == 0:
+    db.rollback()
+    # Transaction safely fails closed with INSUFFICIENT_STOCK
 ```
+- **Guaranteed Invariant:** `available_stock >= 0` and `successful_purchases <= available_inventory`.
 
 ---
 
-## 3. Product Ranking & Scoring Methodology
+## 3. Merchant Revenue Intelligence (`MerchantGrowthEngine`)
 
-Candidate suitability is computed deterministically:
-- **Relevance Score ($R$, $0.0-1.0$):** Keyword matches against name, description, and required features.
-- **Category Score ($C$, $0.0-1.0$):** $1.0$ for exact target category match, $0.1$ for unrelated.
-- **Availability Score ($A$, $0.0-1.0$):** $0.0$ for inactive/out-of-stock, scaled up to $1.0$ based on quantity.
-- **Budget Fit Score ($B$, $0.0-1.0$):** Price relative to budget cap.
-
-$$\text{Composite Score} = 0.35 R + 0.25 C + 0.25 A + 0.15 B$$
+- Identifies complementary high-synergy products (e.g. keyboard + USB hub).
+- Fits strictly within remaining budget headroom: `Headroom = min(buyer_budget, policy_limit) - current_total`.
+- **Advisory Only:** Cannot alter user budget, modify authoritative prices, or force checkout without policy approval.
 
 ---
 
-## 4. Multi-Strategy Recovery Ordering
+## 4. Evaluation Benchmark (Phase 8 Production Suite)
 
-When a policy check blocks a cart (e.g. `AMOUNT_EXCEEDS_LIMIT`), the agent systematically evaluates:
-1. **Remove Optional Add-ons:** Prune priority level 3 items.
-2. **Remove Lowest-Relevance Products:** Prune lowest composite-scored candidate.
-3. **Replace with Lower-Priced Compatible Alternative:** Swap high-cost item for in-budget match.
-4. **Reduce Quantities:** Decrement item quantity where permitted.
-5. **Rebuild Cart:** Full alternative re-selection under budget.
-6. **Bounded Termination:** Strictly halt after 3 attempts with full explanation.
-
----
-
-## 5. Complete API Specification
-
-| Endpoint | Method | Purpose | Implementation Status |
-|---|---|---|---|
-| `/health` | `GET` | Health check probe (`{"status": "ok"}`) | ✅ **Phase 1** |
-| `/.well-known/agent-catalog.json` | `GET` | Machine-readable merchant capability manifest | ✅ **Phase 2** |
-| `/agent/catalog` | `GET` | Filtered, searchable deterministic product catalog | ✅ **Phase 2** |
-| `/agent/products/{sku}` | `GET` | Authoritative single SKU lookup | ✅ **Phase 2** |
-| `/agent/cart/quote` | `POST` | Authoritative quote creation & cryptographic HMAC signing | ✅ **Phase 2** |
-| `/agent/cart/validate` | `POST` | Real-time quote validation & inventory re-verification | ✅ **Phase 2** |
-| `/agent/policy/evaluate` | `POST` | Deterministic policy evaluation of authoritative quotes | ✅ **Phase 3** |
-| `/agent/policy/{policy_id}` | `GET` | Read active policy configuration | ✅ **Phase 3** |
-| `/agent/checkout/execute` | `POST` | Razorpay order creation (only after ALLOW) | ✅ **Phase 4** |
-| `/webhooks/razorpay` | `POST` | Idempotent payment webhook event processor | ✅ **Phase 4** |
-| `/ledger/events` | `GET` | Immutable audit trail query API | ✅ **Phase 4** |
-| `/ledger/verify-chain` | `GET` | Cryptographic audit hash chain integrity verification | ✅ **Phase 4** |
-| `/agent/buy` | `POST` | Autonomous AI Buyer purchase execution endpoint | ✅ **Phase 5/7** |
-| `/agent/confirm` | `POST` | Explicit human-in-the-loop confirmation execution | ✅ **Phase 7** |
-| `/agent/runs` | `GET` | List past AI Buyer runs for Inspector Dashboard | ✅ **Phase 5/7** |
-| `/agent/runs/{run_id}` | `GET` | Retrieve detailed node-by-node execution trace | ✅ **Phase 5/7** |
-| `/events/stream` | `GET` | Real-time Server-Sent Events (SSE) stream for Live Inspector | ✅ **Phase 6** |
-| `/demo/*` | `POST` | Failure simulation lab routes (Stock, Price, Webhook, Tamper) | ✅ **Phase 6** |
+- **Total Scenarios:** 159+ automated tests (`63 core regression` + `96 adversarial`).
+- **Critical Metric:** `UNAUTHORIZED_MONEY_ACTIONS = 0`.
+- **Machine-Readable Report:** Generated to `evaluation/benchmark_report.json`.
