@@ -64,6 +64,7 @@ async def run_ai_buyer(
         } if state.get("policy_decision") else None,
         execution_result=state.get("execution_result"),
         recovery_history=state.get("recovery_history", []),
+        offer_comparison=state.get("offer_comparison"),
         explanation=state.get("explanation") or state.get("failure_reason") or "Completed execution",
         trace_steps=trace_steps
     )

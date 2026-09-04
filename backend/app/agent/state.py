@@ -24,6 +24,7 @@ class AgentState(TypedDict):
     
     # Cart Planning & Optimization
     cart_proposal: List[Dict[str, Any]]
+    offer_comparison: Optional[Dict[str, Any]]
     
     # Server Authoritative Quote State
     quote_id: Optional[str]

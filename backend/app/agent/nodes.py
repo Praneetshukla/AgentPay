@@ -12,6 +12,7 @@ from app.agent.models import (
     CartItemProposal,
     RecoveryAction
 )
+from app.agent.negotiator import MerchantOfferEngine, ProviderOffer, OfferComparisonResult
 from app.agent.tools import AgentToolSuite
 from app.guards.decisions import PolicyDecisionType, PolicyCheckCode
 
@@ -307,6 +308,39 @@ class AgentNodes:
         )
         return state
 
+    def compare_offers_node(self, state: AgentState) -> AgentState:
+        """
+        Deterministic Merchant Offer / Provider Comparison Layer:
+        Evaluates candidate items and provider offers strictly against server catalog facts.
+        Produces a deterministic ranking without fabricating synthetic external merchants or fake savings.
+        """
+        t0 = time.time()
+        candidates = state.get("ranked_candidates", [])
+        intent = state.get("buyer_intent") or BuyerIntent(user_goal=state["user_goal"])
+        budget = intent.budget_limit_paise
+
+        offers = MerchantOfferEngine.build_offers_from_candidates(candidates)
+        comparison = MerchantOfferEngine.compare_and_select(offers, budget_limit_paise=budget)
+        state["offer_comparison"] = comparison.model_dump(mode="json")
+        duration_ms = int((time.time() - t0) * 1000)
+
+        _record_trace_step(
+            state=state,
+            node="compare_offers",
+            action=f"Compared {comparison.total_offers_evaluated} available provider offers ({comparison.comparison_state})",
+            input_summary={"total_offers": len(offers), "budget_cap": budget},
+            output_summary={
+                "comparison_state": comparison.comparison_state,
+                "selected_sku": comparison.selected_offer.sku if comparison.selected_offer else None,
+                "selected_price_paise": comparison.selected_offer.price_paise if comparison.selected_offer else None,
+                "is_negotiated": comparison.is_negotiated,
+                "actual_savings_paise": comparison.actual_savings_paise,
+                "reason": comparison.selection_reason
+            },
+            duration_ms=duration_ms
+        )
+        return state
+
     def request_quote_node(self, state: AgentState) -> AgentState:
         """
         Request server-authoritative quote.
@@ -413,7 +447,8 @@ class AgentNodes:
         reasons = state.get("policy_reasons", [])
         reason_codes = [r.get("code") for r in reasons]
         cart = list(state.get("cart_proposal", []))
-        before_total = state.get("quote_payload", {}).get("total", 0)
+        quote_payload = state.get("quote_payload") or {}
+        before_total = quote_payload.get("total", 0)
 
         recovery_action = None
 

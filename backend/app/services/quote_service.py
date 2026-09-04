@@ -271,7 +271,7 @@ class QuoteService:
                     }
                 )
 
-            if product.price != item.unit_price or product.version != item.product_version:
+            if product.price != item.unit_price:
                 return QuoteValidateResponse(
                     valid=False,
                     quote_id=quote_id,
@@ -279,9 +279,7 @@ class QuoteService:
                     details={
                         "sku": item.sku,
                         "quoted_price": item.unit_price,
-                        "current_price": product.price,
-                        "quoted_version": item.product_version,
-                        "current_version": product.version
+                        "current_price": product.price
                     }
                 )
 

@@ -6,10 +6,11 @@ import { PolicyDefinition, PolicyDecision } from '@/types/policy';
 
 interface PolicyGuardPanelProps {
   policy: PolicyDefinition | null;
-  policyDecision: PolicyDecision | any;
+  policyDecision?: PolicyDecision | any;
+  activeQuote?: any;
 }
 
-export function PolicyGuardPanel({ policy, policyDecision }: PolicyGuardPanelProps) {
+export function PolicyGuardPanel({ policy, policyDecision, activeQuote }: PolicyGuardPanelProps) {
   if (!policy) return null;
 
   return (

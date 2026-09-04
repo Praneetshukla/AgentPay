@@ -83,6 +83,57 @@ async def simulate_price_change(
 
 
 @router.post(
+    "/simulate-tamper-quote",
+    status_code=status.HTTP_200_OK,
+    summary="[Demo Only] Spoof Quote Signature and Test Gateway Rejection"
+)
+async def simulate_tamper_quote(
+    db: Session = Depends(get_db)
+):
+    """Generates a quote and intentionally tampers with its HMAC signature to prove gateway rejection."""
+    if settings.ENVIRONMENT == "production":
+        raise HTTPException(status_code=403, detail="Simulation endpoints are disabled in production mode")
+
+    from app.services.quote_service import QuoteService
+    from app.guards.policy import DeterministicPolicyEngine
+    from app.schemas.catalog import QuoteRequest, CartItemRequest
+
+    quote_service = QuoteService(db)
+    # Create valid quote for a wireless mouse (₹1,299)
+    valid_quote = quote_service.create_authoritative_quote(
+        QuoteRequest(items=[CartItemRequest(sku="MOUSE-WL-002", quantity=1)])
+    )
+
+    # Corrupt stored signature in DB
+    quote = db.scalars(select(Quote).where(Quote.id == valid_quote.quote_id)).first()
+    if quote:
+        quote.signature = "0000000000000000000000000000000000000000000000000000000000000000"
+        db.commit()
+
+    # Now evaluate policy against the tampered quote
+    policy_engine = DeterministicPolicyEngine(db)
+    decision = policy_engine.evaluate_quote_policy(
+        quote_id=valid_quote.quote_id,
+        policy_id="policy_demo"
+    )
+
+    # Clean up tampered quote
+    if quote:
+        db.delete(quote)
+        db.commit()
+
+    return {
+        "tampered_quote_id": valid_quote.quote_id,
+        "tampered_signature": "0000000000000000000000000000000000000000000000000000000000000000",
+        "policy_decision": decision.decision.value,
+        "failed_check": "quote_authoritative_validation",
+        "reasons": [r.model_dump() if hasattr(r, 'model_dump') else r.dict() for r in decision.reasons],
+        "checks": [c.model_dump() if hasattr(c, 'model_dump') else c.dict() for c in decision.checks],
+        "message": "Quote signature mismatch detected. Server-authoritative policy gate instantly BLOCKED execution."
+    }
+
+
+@router.post(
     "/simulate-webhook",
     status_code=status.HTTP_200_OK,
     summary="[Demo Only] Simulate Razorpay Payment Webhook Delivery"
@@ -138,6 +189,10 @@ async def simulate_webhook(
     }
 
 
+# Global in-memory storage for original payload during live demo tamper tests
+_ORIGINAL_EVENT_PAYLOADS: Dict[int, Any] = {}
+
+
 @router.post(
     "/simulate-tamper-ledger",
     status_code=status.HTTP_200_OK,
@@ -159,16 +214,43 @@ async def simulate_tamper_ledger(
             payload={"initial": True}
         )
 
-    original_payload = dict(event.payload)
+    # Save exact pristine payload before mutation
+    _ORIGINAL_EVENT_PAYLOADS[event.id] = dict(event.payload) if isinstance(event.payload, dict) else event.payload
     event.payload = {"tampered": True, "malicious_modification": "Altered amount from ₹2,499 to ₹0.01"}
     db.commit()
     return {
         "tampered_event_id": event.id,
         "event_hash": event.event_hash,
-        "original_payload": original_payload,
+        "original_payload": _ORIGINAL_EVENT_PAYLOADS[event.id],
         "tampered_payload": event.payload,
         "message": "Audit event altered. Run GET /ledger/verify-chain to verify cryptographic failure."
     }
+
+
+@router.post(
+    "/simulate-restore-ledger",
+    status_code=status.HTTP_200_OK,
+    summary="[Demo Only] Restore Tampered Audit Ledger Record"
+)
+async def simulate_restore_ledger(
+    db: Session = Depends(get_db)
+):
+    """Restores the pristine original payload of the tampered audit event in DB."""
+    if settings.ENVIRONMENT == "production":
+        raise HTTPException(status_code=403, detail="Simulation endpoints are disabled in production mode")
+
+    restored = []
+    for evt_id, orig_payload in list(_ORIGINAL_EVENT_PAYLOADS.items()):
+        event = db.scalars(select(AuditEvent).where(AuditEvent.id == evt_id)).first()
+        if event:
+            event.payload = orig_payload
+            restored.append(evt_id)
+    _ORIGINAL_EVENT_PAYLOADS.clear()
+
+    if restored:
+        db.commit()
+        return {"status": "restored", "restored_event_ids": restored}
+    return {"status": "no_tampered_event_found"}
 
 
 @router.post(

@@ -86,6 +86,21 @@ class EventBroker:
             payload=clean_payload
         )
 
+    def publish_sync(self, event: AgentExecutionEvent) -> None:
+        """Synchronously dispatch event publication into running asyncio loop or via background task."""
+        sanitized_event = self._sanitize_event(event)
+        event_json = sanitized_event.model_dump_json()
+        for queue in list(self._subscribers):
+            try:
+                if queue.full():
+                    try:
+                        queue.get_nowait()
+                    except Exception:
+                        pass
+                queue.put_nowait(event_json)
+            except Exception:
+                self._subscribers.discard(queue)
+
 
 # Global Singleton Broker Instance
 event_broker = EventBroker()

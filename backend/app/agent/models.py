@@ -88,5 +88,6 @@ class AgentRunResult(BaseModel):
     policy_decision: Optional[Dict[str, Any]] = None
     execution_result: Optional[Dict[str, Any]] = None
     recovery_history: List[Dict[str, Any]] = Field(default_factory=list)
+    offer_comparison: Optional[Dict[str, Any]] = None
     explanation: str
     trace_steps: List[AgentTraceStep] = Field(default_factory=list)

@@ -55,6 +55,34 @@ export interface RecoveryAction {
   adjustments_made?: Record<string, any>;
 }
 
+export interface ProviderOffer {
+  provider_id: string;
+  provider_name: string;
+  sku: string;
+  product_name: string;
+  category: string;
+  price_paise: number;
+  currency: string;
+  stock_quantity: number;
+  in_stock: boolean;
+  delivery_estimate_days?: number;
+  specification_fit_score: number;
+  composite_rank_score: number;
+  attributes?: Record<string, any>;
+  quote_valid: boolean;
+}
+
+export interface OfferComparisonResult {
+  comparison_state: 'DISCOVERING' | 'COMPARING' | 'SELECTED' | 'NO_ALTERNATIVE';
+  total_offers_evaluated: number;
+  selected_offer: ProviderOffer | null;
+  all_offers: ProviderOffer[];
+  selection_reason: string;
+  is_negotiated: boolean;
+  actual_savings_paise: number;
+  selection_policy: string;
+}
+
 export interface AgentRunResult {
   run_id: string;
   request_id: string;
@@ -67,6 +95,7 @@ export interface AgentRunResult {
     price_paise?: number;
   }>;
   ranked_candidates?: ProductCandidate[];
+  offer_comparison?: OfferComparisonResult;
   quote?: {
     quote_id: string;
     subtotal: number;

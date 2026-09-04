@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgentPay Gateway | AI-Native Commerce & Deterministic Policy Gate",
-  description: "AI-native commerce gateway that makes merchants transactable by AI buyers with strict deterministic server-side financial gates.",
+  title: "AgentPay | AI-Native Commerce & Transaction Guardian",
+  description: "Autonomous AI Commerce Authorization Platform — Policy-Gated, Server-Authoritative, and Hash-Chained.",
 };
 
 export default function RootLayout({
@@ -12,8 +12,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased bg-slate-950 text-slate-100 min-h-screen">
+    <html lang="en" className="light">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="antialiased bg-[#f8f9ff] text-[#0b1c30] font-body min-h-screen">
         {children}
       </body>
     </html>

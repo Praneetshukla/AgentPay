@@ -58,6 +58,7 @@ def create_buyer_graph(db: Session) -> StateGraph:
     # Register nodes
     workflow.add_node("parse_intent", nodes.parse_intent_node)
     workflow.add_node("discover_catalog", nodes.discover_catalog_node)
+    workflow.add_node("compare_offers", nodes.compare_offers_node)
     workflow.add_node("plan_cart", nodes.plan_cart_node)
     workflow.add_node("request_quote", nodes.request_quote_node)
     workflow.add_node("evaluate_policy", nodes.evaluate_policy_node)
@@ -79,10 +80,11 @@ def create_buyer_graph(db: Session) -> StateGraph:
     workflow.add_node("hold_confirmation", hold_confirmation_node)
     workflow.add_node("stop_blocked", stop_blocked_node)
 
-    # Define linear graph edges
+    # Define linear graph edges: parse_intent -> discover_catalog -> compare_offers -> plan_cart -> request_quote -> evaluate_policy
     workflow.set_entry_point("parse_intent")
     workflow.add_edge("parse_intent", "discover_catalog")
-    workflow.add_edge("discover_catalog", "plan_cart")
+    workflow.add_edge("discover_catalog", "compare_offers")
+    workflow.add_edge("compare_offers", "plan_cart")
     workflow.add_edge("plan_cart", "request_quote")
     workflow.add_edge("request_quote", "evaluate_policy")
 
@@ -136,6 +138,7 @@ class AutonomousBuyerOrchestrator:
             "discovered_products": [],
             "ranked_candidates": [],
             "cart_proposal": [],
+            "offer_comparison": None,
             "quote_id": None,
             "quote_payload": None,
             "policy_decision": None,

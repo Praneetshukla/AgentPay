@@ -1,4 +1,6 @@
 import json
+import uuid
+from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -8,6 +10,7 @@ from app.ledger.service import AuditLedgerService
 from app.razorpay.client import RazorpayClientInterface, RazorpayTestClient
 from app.razorpay.errors import WebhookSignatureError
 from app.razorpay.service import ExecutionService
+from app.core.events import event_broker, AgentExecutionEvent
 
 
 class RazorpayWebhookProcessor:
@@ -120,7 +123,7 @@ class RazorpayWebhookProcessor:
                 actor=actor,
                 metadata_update={"razorpay_payment_id": razorpay_payment_id, "payment_payload": payment_entity}
             )
-            self.audit_service.record_event(
+            audit_event = self.audit_service.record_event(
                 event_type="PAYMENT_CAPTURED",
                 actor=actor,
                 payload={
@@ -130,6 +133,28 @@ class RazorpayWebhookProcessor:
                 },
                 transaction_id=transaction.id,
                 quote_id=transaction.quote_id
+            )
+            # Publish real-time SSE event
+            event_broker.publish_sync(
+                AgentExecutionEvent(
+                    event_id=f"evt_{uuid.uuid4().hex[:16]}",
+                    transaction_id=transaction.id,
+                    quote_id=transaction.quote_id,
+                    event_type="PAYMENT_CAPTURED",
+                    node="payment_gateway",
+                    status="SUCCESS",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    explanation=f"Payment captured successfully via Razorpay (Payment ID: {razorpay_payment_id})",
+                    payload={
+                        "transaction_id": transaction.id,
+                        "razorpay_order_id": razorpay_order_id,
+                        "razorpay_payment_id": razorpay_payment_id,
+                        "amount": transaction.amount,
+                        "currency": transaction.currency,
+                        "status": "PAID",
+                        "audit_event_id": audit_event.id if audit_event else None
+                    }
+                )
             )
             return True, "PAYMENT_CAPTURED", {"transaction_id": transaction.id, "transaction_status": "PAID"}
 
@@ -142,12 +167,34 @@ class RazorpayWebhookProcessor:
                 reason=error_desc,
                 metadata_update={"payment_payload": payment_entity}
             )
-            self.audit_service.record_event(
+            audit_event = self.audit_service.record_event(
                 event_type="PAYMENT_FAILED",
                 actor=actor,
                 payload={"error": error_desc, "razorpay_order_id": razorpay_order_id},
                 transaction_id=transaction.id,
                 quote_id=transaction.quote_id
+            )
+            # Publish real-time SSE event
+            event_broker.publish_sync(
+                AgentExecutionEvent(
+                    event_id=f"evt_{uuid.uuid4().hex[:16]}",
+                    transaction_id=transaction.id,
+                    quote_id=transaction.quote_id,
+                    event_type="PAYMENT_FAILED",
+                    node="payment_gateway",
+                    status="FAILED",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    explanation=f"Payment failed via gateway: {error_desc}",
+                    payload={
+                        "transaction_id": transaction.id,
+                        "razorpay_order_id": razorpay_order_id,
+                        "amount": transaction.amount,
+                        "currency": transaction.currency,
+                        "status": "FAILED",
+                        "error": error_desc,
+                        "audit_event_id": audit_event.id if audit_event else None
+                    }
+                )
             )
             return True, "PAYMENT_FAILED", {"transaction_id": transaction.id, "transaction_status": "FAILED", "reason": error_desc}
 

@@ -11,6 +11,7 @@ from app.ledger.service import AuditLedgerService
 from app.razorpay.client import RazorpayClientInterface, RazorpayTestClient
 from app.razorpay.models import RazorpayOrderCreate, CheckoutExecuteResponse
 from app.razorpay.errors import RazorpayAPIError
+from app.core.events import event_broker, AgentExecutionEvent
 
 
 class ExecutionService:
@@ -234,7 +235,7 @@ class ExecutionService:
                 metadata_update={"razorpay_order": razorpay_order.model_dump()}
             )
 
-            self.audit_service.record_event(
+            audit_evt = self.audit_service.record_event(
                 event_type="RAZORPAY_ORDER_CREATED",
                 actor=actor,
                 payload={
@@ -244,6 +245,28 @@ class ExecutionService:
                 },
                 transaction_id=transaction.id,
                 quote_id=quote.id
+            )
+
+            # Publish real-time SSE payment initiated event
+            event_broker.publish_sync(
+                AgentExecutionEvent(
+                    event_id=f"evt_{uuid.uuid4().hex[:16]}",
+                    transaction_id=transaction.id,
+                    quote_id=quote.id,
+                    event_type="PAYMENT_INITIATED",
+                    node="payment_gateway",
+                    status="PAYMENT_PENDING",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    explanation=f"Razorpay order initialized: {razorpay_order.id} for ₹{razorpay_order.amount/100:,.2f}",
+                    payload={
+                        "transaction_id": transaction.id,
+                        "razorpay_order_id": razorpay_order.id,
+                        "amount": razorpay_order.amount,
+                        "currency": razorpay_order.currency,
+                        "status": "PAYMENT_PENDING",
+                        "audit_event_id": audit_evt.id if audit_evt else None
+                    }
+                )
             )
 
             # 6b. Atomic inventory consumption at database level

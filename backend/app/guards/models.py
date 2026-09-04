@@ -1,5 +1,5 @@
-from datetime import datetime
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 from app.guards.decisions import PolicyDecisionType, PolicyCheckCode
 
@@ -54,3 +54,28 @@ class PolicyRead(BaseModel):
     active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class PolicyUpdateRequest(BaseModel):
+    max_transaction_amount: Optional[int] = Field(None, ge=100, le=5000000, description="Max transaction amount in paise")
+    confirmation_threshold: Optional[int] = Field(None, ge=100, le=5000000, description="Confirmation threshold in paise")
+    allowed_categories: Optional[List[str]] = Field(None, description="Allowed category whitelists")
+    max_cart_items: Optional[int] = Field(None, ge=1, le=20, description="Max items per cart")
+    max_quantity_per_sku: Optional[int] = Field(None, ge=1, le=10, description="Max quantity per SKU")
+
+
+class PolicySummaryRead(BaseModel):
+    policy_id: str
+    policy_version: int
+    merchant_id: str
+    currency: str
+    max_transaction_amount: int
+    confirmation_threshold: int
+    total_spent_paise: int
+    available_headroom_paise: int
+    successful_transactions_count: int
+    allowed_categories: List[str]
+    max_cart_items: int
+    max_quantity_per_sku: int
+    active: bool
+    last_updated: datetime
