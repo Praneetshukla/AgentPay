@@ -142,40 +142,58 @@ export function LangGraphVisualTracer({
       </div>
 
       {/* Primary Pipeline Flow */}
-      <div className="flex items-center justify-between gap-1 overflow-x-auto py-2">
+      <div className="flex items-center justify-between gap-1 overflow-x-auto py-2.5 px-1">
         {pipelineNodes.map((node, index) => {
           const isPassed = executedNodeKeys.has(node.nodeKey) || steps.length === 0;
           const matchingStep = steps.find((s) => s.node === node.nodeKey);
           const isSelected = selectedNodeEvidence?.id === node.id;
+          const isCurrentActive = steps.length > 0 && steps[steps.length - 1]?.node === node.nodeKey;
 
           return (
             <React.Fragment key={node.id}>
               <button
                 type="button"
                 onClick={() => handleNodeClick(node)}
-                className="flex flex-col items-center shrink-0 min-w-[72px] text-center group cursor-pointer focus:outline-none transition-transform hover:scale-105"
+                className="flex flex-col items-center shrink-0 min-w-[76px] text-center group cursor-pointer focus:outline-none transition-transform hover:scale-105"
               >
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-2xs ${
-                    isSelected
-                      ? 'bg-[#4f46e5] text-white ring-2 ring-[#4f46e5]/40 shadow-md'
-                      : isPassed
-                      ? 'bg-[#4f46e5]/10 text-[#4f46e5] border border-[#4f46e5]/30 hover:bg-[#4f46e5]/20'
-                      : 'bg-slate-100 text-slate-400 border border-slate-200'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-base">{node.icon}</span>
+                <div className="relative">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                      isSelected
+                        ? 'bg-[#4f46e5] text-white ring-4 ring-[#4f46e5]/30 shadow-lg scale-105 node-active-glow'
+                        : isCurrentActive
+                        ? 'bg-[#4f46e5] text-white node-active-glow ring-2 ring-[#4f46e5]'
+                        : isPassed
+                        ? 'bg-[#eff4ff] text-[#4f46e5] border-2 border-[#4f46e5]/40 hover:bg-[#4f46e5]/15 node-passed-glow'
+                        : 'bg-slate-100 text-slate-400 border border-slate-200'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-lg">{node.icon}</span>
+                  </div>
+                  {/* Step counter pill badge */}
+                  <span className={`absolute -top-1.5 -right-1.5 text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center border shadow-xs ${
+                    isPassed || isSelected ? 'bg-[#006c49] text-white border-white' : 'bg-slate-200 text-slate-600 border-white'
+                  }`}>
+                    {index + 1}
+                  </span>
                 </div>
-                <span className="text-[10px] font-semibold text-[#0b1c30] mt-1.5 leading-tight group-hover:text-[#4f46e5] transition">
+
+                <span className="text-[10.5px] font-bold text-[#0b1c30] mt-2 leading-tight group-hover:text-[#4f46e5] transition">
                   {node.label}
                 </span>
-                <span className="text-[9px] font-mono text-[#777587]">
-                  {matchingStep?.duration_ms ? `${matchingStep.duration_ms}ms` : isPassed ? 'Pass' : 'Queued'}
+                <span className="text-[9px] font-mono text-[#777587] mt-0.5">
+                  {matchingStep?.duration_ms ? `${matchingStep.duration_ms}ms` : isPassed ? '✓ Passed' : 'Queued'}
                 </span>
               </button>
 
               {index < pipelineNodes.length - 1 && (
-                <div className="flex-1 h-0.5 min-w-[12px] bg-gradient-to-r from-[#4f46e5]/30 to-[#4f46e5]/40 rounded relative" />
+                <div className="flex-1 h-1.5 min-w-[16px] bg-slate-100 rounded-full relative overflow-hidden self-center mb-6">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      isPassed ? 'w-full bg-[#4f46e5] animate-pulse-beam' : 'w-0'
+                    }`}
+                  />
+                </div>
               )}
             </React.Fragment>
           );
