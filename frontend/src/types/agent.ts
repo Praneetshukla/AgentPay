@@ -72,6 +72,17 @@ export interface ProviderOffer {
   quote_valid: boolean;
 }
 
+export interface NegotiationRound {
+  round_number: number;
+  speaker: 'BUYER_AGENT' | 'MERCHANT_AGENT';
+  speaker_name: string;
+  message: string;
+  proposed_price_paise: number;
+  concession_paise: number;
+  strategy_applied: string;
+  timestamp?: string;
+}
+
 export interface OfferComparisonResult {
   comparison_state: 'DISCOVERING' | 'COMPARING' | 'SELECTED' | 'NO_ALTERNATIVE';
   total_offers_evaluated: number;
@@ -81,6 +92,7 @@ export interface OfferComparisonResult {
   is_negotiated: boolean;
   actual_savings_paise: number;
   selection_policy: string;
+  negotiation_rounds?: NegotiationRound[];
 }
 
 export interface AgentRunResult {

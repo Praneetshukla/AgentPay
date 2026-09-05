@@ -44,7 +44,8 @@ def test_merchant_offer_engine_comparison():
     assert res.comparison_state == "SELECTED"
     assert res.selected_offer is not None
     assert res.selected_offer.sku == "SKU-A"
-    assert res.is_negotiated is False
+    assert res.is_negotiated is True
+    assert len(res.negotiation_rounds) > 0
     assert res.actual_savings_paise == 100000  # 349900 - 249900
 
 
@@ -86,7 +87,8 @@ async def test_agent_run_includes_offer_comparison(async_client: AsyncClient):
     assert data["offer_comparison"]["comparison_state"] in ["SELECTED", "DISCOVERING", "COMPARING"]
     assert data["offer_comparison"]["selected_offer"] is not None
     assert data["offer_comparison"]["selected_offer"]["sku"] == "KB-MECH-001"
-    assert data["offer_comparison"]["is_negotiated"] is False
+    assert data["offer_comparison"]["is_negotiated"] is True
+    assert len(data["offer_comparison"]["negotiation_rounds"]) > 0
 
 
 @pytest.mark.asyncio

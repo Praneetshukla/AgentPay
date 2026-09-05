@@ -5,6 +5,7 @@ import { useMission } from '@/lib/mission-context';
 
 import { LangGraphVisualTracer } from './LangGraphVisualTracer';
 import { MerchantOfferComparisonCard } from './MerchantOfferComparisonCard';
+import { MultiAgentNegotiationArena } from './MultiAgentNegotiationArena';
 
 export function ActiveMissionView() {
   const {
@@ -145,6 +146,11 @@ export function ActiveMissionView() {
 
         {/* RIGHT COLUMN: Execution Plan & Decision Evidence (Col 6-12) */}
         <div className="lg:col-span-7 space-y-6">
+          {/* Multi-Agent Autonomous Negotiation Arena */}
+          {latestRun?.offer_comparison?.negotiation_rounds && latestRun.offer_comparison.negotiation_rounds.length > 0 && (
+            <MultiAgentNegotiationArena comparison={latestRun.offer_comparison} />
+          )}
+
           {/* The Execution Plan Card */}
           <div className="authority-envelope rounded-2xl p-6 space-y-5 border border-[#4f46e5]/15 shadow-sm">
             <div className="flex items-start justify-between border-b border-[#c7c4d8]/20 pb-3">
