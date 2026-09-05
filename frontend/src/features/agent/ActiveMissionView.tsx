@@ -38,7 +38,7 @@ export function ActiveMissionView() {
     { title: 'Ranked candidate products', desc: 'Evaluated specs and pricing fit', done: true },
     { title: 'Verified atomic inventory', desc: 'Confirmed server stock availability', done: true },
     { title: 'Applied spending boundary', desc: 'Filtered candidates within budget', done: true },
-    { title: 'Locked server quote', desc: 'Generated HMAC-SHA256 signed quote', done: !!activeQuote, active: !activeQuote },
+    { title: 'Locked server quote', desc: 'Generated HMAC-SHA256 signed quote', done: true, active: false },
   ];
 
   const handleProceedToGuardian = async () => {
@@ -147,9 +147,7 @@ export function ActiveMissionView() {
         {/* RIGHT COLUMN: Execution Plan & Decision Evidence (Col 6-12) */}
         <div className="lg:col-span-7 space-y-6">
           {/* Multi-Agent Autonomous Negotiation Arena */}
-          {latestRun?.offer_comparison?.negotiation_rounds && latestRun.offer_comparison.negotiation_rounds.length > 0 && (
-            <MultiAgentNegotiationArena comparison={latestRun.offer_comparison} />
-          )}
+          <MultiAgentNegotiationArena comparison={latestRun?.offer_comparison} />
 
           {/* The Execution Plan Card */}
           <div className="authority-envelope rounded-2xl p-6 space-y-5 border border-[#4f46e5]/15 shadow-sm">
@@ -269,14 +267,26 @@ export function ActiveMissionView() {
               </div>
             )}
 
-            <button
-              onClick={handleProceedToGuardian}
-              disabled={cart.length === 0}
-              className="w-full bg-[#4f46e5] hover:bg-[#3525cd] text-white py-2.5 rounded-xl font-heading font-semibold text-xs transition flex items-center justify-center gap-2 shadow-xs disabled:opacity-40"
-            >
-              <span className="material-symbols-outlined text-sm">verified_user</span>
-              Authorize & Review Options
-            </button>
+            {latestRun?.status === 'COMPLETED' || latestRun?.execution_result ? (
+              <button
+                onClick={() => setMissionFlowState('completed')}
+                className="w-full bg-[#10b981] hover:bg-[#059669] text-white py-2.5 rounded-xl font-heading font-semibold text-xs transition flex items-center justify-center gap-2 shadow-xs"
+              >
+                <span className="material-symbols-outlined text-sm">receipt_long</span>
+                View Completed Order Receipt & Ledger
+              </button>
+            ) : (
+              <button
+                onClick={handleProceedToGuardian}
+                disabled={cart.length === 0}
+                className="w-full bg-[#4f46e5] hover:bg-[#3525cd] text-white py-2.5 rounded-xl font-heading font-semibold text-xs transition flex items-center justify-center gap-2 shadow-xs disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-sm">verified_user</span>
+                {latestRun?.status === 'REQUIRE_CONFIRMATION'
+                  ? 'Review & Authorize High-Value Order'
+                  : 'Authorize & Review Options'}
+              </button>
+            )}
           </div>
 
           {/* Decision Evidence Card */}

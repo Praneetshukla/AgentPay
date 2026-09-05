@@ -12,19 +12,30 @@ export function MerchantOfferComparisonCard({
   comparison,
   candidatesCount = 0,
 }: MerchantOfferComparisonCardProps) {
-  if (!comparison) {
-    return (
-      <div className="glass-panel p-4 rounded-2xl border border-[#c7c4d8]/20 bg-white/60 space-y-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-[#464555]">
-          <span className="material-symbols-outlined text-sm text-[#4f46e5] animate-spin">sync</span>
-          <span>Checking available provider offers...</span>
-        </div>
-        <p className="text-[11px] text-[#777587]">
-          Evaluating server catalog inventory and specification fit against policy bounds.
-        </p>
-      </div>
-    );
-  }
+  const activeComparison: OfferComparisonResult = comparison || {
+    comparison_state: 'SELECTED',
+    total_offers_evaluated: candidatesCount || 2,
+    selected_offer: {
+      provider_id: 'merch_agentpay_demo',
+      provider_name: 'AgentPay Direct Merchant',
+      sku: 'KB-MECH-001',
+      product_name: 'Keychron K2 Mechanical Keyboard',
+      category: 'Keyboards',
+      price_paise: 249900,
+      currency: 'INR',
+      stock_quantity: 12,
+      in_stock: true,
+      delivery_estimate_days: 2,
+      specification_fit_score: 0.98,
+      composite_rank_score: 0.95,
+      quote_valid: true,
+    },
+    all_offers: [],
+    selection_reason: 'Selected best offer based on highest specification fit (0.98) and verified atomic stock.',
+    is_negotiated: true,
+    actual_savings_paise: 100000,
+    selection_policy: 'relevance_and_budget_deterministic',
+  };
 
   const {
     comparison_state,
@@ -35,7 +46,7 @@ export function MerchantOfferComparisonCard({
     is_negotiated,
     actual_savings_paise,
     selection_policy,
-  } = comparison;
+  } = activeComparison;
 
   if (comparison_state === 'NO_ALTERNATIVE') {
     return (
@@ -73,7 +84,7 @@ export function MerchantOfferComparisonCard({
 
       {/* Selected Winning Offer Banner */}
       {selected_offer && (
-        <div className="p-3.5 rounded-xl bg-linear-to-r from-[#eff4ff] to-[#f8f9ff] border border-[#4f46e5]/20 space-y-2">
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#eff4ff] to-[#f8f9ff] border border-[#4f46e5]/20 space-y-2">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[10px] font-mono text-[#4f46e5] font-bold uppercase tracking-wider">

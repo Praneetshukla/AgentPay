@@ -95,12 +95,12 @@ export function AutonomousRecoveryView() {
                     )}
                   </div>
 
-                  {(act.before_total_paise !== undefined || act.after_total_paise !== undefined) && (
+                  {(act.before_total_paise !== undefined || act.after_total_paise !== undefined || newTotal > 0) && (
                     <div className="flex justify-between items-center text-xs font-mono pt-1 text-[#777587]">
-                      <span>Before: ₹{((act.before_total_paise || 0) / 100).toFixed(0)}</span>
+                      <span>Before: ₹{((act.before_total_paise || originalTotal) / 100).toFixed(0)}</span>
                       <span className="material-symbols-outlined text-xs">arrow_forward</span>
                       <span className="font-bold text-[#0b1c30]">
-                        After: ₹{((act.after_total_paise || 0) / 100).toFixed(0)}
+                        After: ₹{(((act.after_total_paise && act.after_total_paise > 0) ? act.after_total_paise : newTotal) / 100).toFixed(0)}
                       </span>
                     </div>
                   )}
@@ -179,9 +179,9 @@ export function AutonomousRecoveryView() {
               </span>
             </div>
             <div className="pt-2 border-t border-[#c7c4d8]/20 flex justify-between items-center">
-              <span className="text-xs font-bold text-[#0b1c30]">Available Authority:</span>
+              <span className="text-xs font-bold text-[#0b1c30]">Remaining Headroom:</span>
               <span className="text-[#006c49] font-bold text-sm">
-                ₹{(remainingAuthority / 100).toFixed(0)}
+                ₹{Math.max(0, ((policy?.max_transaction_amount || 500000) - newTotal) / 100).toFixed(0)}
               </span>
             </div>
           </div>
@@ -190,11 +190,21 @@ export function AutonomousRecoveryView() {
           <div className="space-y-2 pt-2">
             {!isBlocked ? (
               <button
-                onClick={() => setMissionFlowState('active_plan')}
+                onClick={() => {
+                  if (latestRun?.status === 'COMPLETED' || latestRun?.execution_result) {
+                    setMissionFlowState('completed');
+                  } else {
+                    setMissionFlowState('active_plan');
+                  }
+                }}
                 className="w-full bg-[#4f46e5] hover:bg-[#3525cd] text-white py-2.5 rounded-xl font-heading font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <span className="material-symbols-outlined text-sm">visibility</span>
-                Review Adapted Plan & Authorize
+                <span className="material-symbols-outlined text-sm">
+                  {latestRun?.status === 'COMPLETED' || latestRun?.execution_result ? 'receipt_long' : 'visibility'}
+                </span>
+                {latestRun?.status === 'COMPLETED' || latestRun?.execution_result
+                  ? 'View Completed Order Receipt'
+                  : 'Review Adapted Plan & Authorize'}
               </button>
             ) : null}
 

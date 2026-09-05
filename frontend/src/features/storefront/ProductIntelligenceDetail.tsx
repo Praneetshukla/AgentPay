@@ -2,6 +2,18 @@
 
 import React from 'react';
 import { useMission } from '@/lib/mission-context';
+import {
+  ArrowLeft,
+  ShieldCheck,
+  Cpu,
+  Zap,
+  CheckCircle2,
+  Plus,
+  Lock,
+  Layers,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react';
 
 export function ProductIntelligenceDetail() {
   const {
@@ -35,174 +47,140 @@ export function ProductIntelligenceDetail() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center justify-between border-b border-[#c7c4d8]/20 pb-4 text-xs">
-        <div className="flex items-center gap-2 text-[#777587]">
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Top Header Breadcrumb & Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setSelectedProductDetail(null)}
-            className="hover:text-[#4f46e5] flex items-center gap-1 font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
           >
-            <span className="material-symbols-outlined text-sm">arrow_back</span>
-            Catalog
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Sales Store
           </button>
-          <span>/</span>
-          <span className="text-[#464555] font-mono">{product.category}</span>
-          <span>/</span>
-          <span className="text-[#0b1c30] font-bold">{product.name}</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-xs font-mono text-slate-500 uppercase">{product.category}</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-xs font-bold text-slate-900 truncate max-w-xs">{product.name}</span>
         </div>
 
-        <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#10b981]/10 text-[#006c49] border border-[#10b981]/20">
-          Agent Evaluated
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Server Verified
+          </span>
+          <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+            SKU: {product.sku}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT COLUMN: Product Overview & Hardware Specs (Col 1-7) */}
-        <div className="lg:col-span-7 space-y-6">
-          <div>
-            <h2 className="font-heading font-bold text-3xl text-[#0b1c30]">{product.name}</h2>
-            <p className="text-sm text-[#464555] mt-2 leading-relaxed">{product.description}</p>
-          </div>
-
-          {/* Product Showcase Card */}
-          <div className="glass-panel p-8 rounded-2xl border border-[#c7c4d8]/30 flex flex-col items-center justify-center bg-white shadow-2xs relative min-h-[220px]">
-            <div className="w-20 h-20 rounded-2xl bg-[#eff4ff] flex items-center justify-center text-[#4f46e5] shadow-xs mb-3">
-              <span className="material-symbols-outlined text-5xl">
-                {product.category.toLowerCase().includes('keyboard')
-                  ? 'keyboard'
-                  : product.category.toLowerCase().includes('mouse')
-                  ? 'mouse'
-                  : product.category.toLowerCase().includes('camera')
-                  ? 'videocam'
-                  : 'devices'}
+        {/* Left Column: Product Specifications & Hardware Details */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200/90 p-8 shadow-sm space-y-6">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-100">
+                <Cpu className="w-3.5 h-3.5 text-indigo-600" />
+                {product.category}
               </span>
-            </div>
-            <span className="font-mono text-xs text-[#777587]">SKU: {product.sku}</span>
-          </div>
-
-          {/* Dynamic Architecture Spec Badges from Real Product Attributes */}
-          {product.attributes && Object.keys(product.attributes).length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              {Object.entries(product.attributes).map(([key, val], idx) => {
-                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-                const formattedVal = Array.isArray(val) ? val.join(', ') : typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
-
-                return (
-                  <div key={idx} className="p-3.5 rounded-xl bg-white border border-[#c7c4d8]/20 shadow-2xs space-y-1">
-                    <div className="text-[10px] font-mono text-[#777587] uppercase font-bold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs text-[#4f46e5]">settings_suggest</span>
-                      {formattedKey}
-                    </div>
-                    <div className="font-semibold text-[#0b1c30] truncate" title={formattedVal}>
-                      {formattedVal}
-                    </div>
-                    <div className="text-[10px] text-[#777587]">Verified specification</div>
-                  </div>
-                );
-              })}
-              <div className="p-3.5 rounded-xl bg-white border border-[#c7c4d8]/20 shadow-2xs space-y-1">
-                <div className="text-[10px] font-mono text-[#006c49] uppercase font-bold flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">inventory_2</span> Available Stock
-                </div>
-                <div className="font-semibold text-[#006c49]">{product.stock_quantity} Units</div>
-                <div className="text-[10px] text-[#777587]">Live database count</div>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 rounded-xl bg-white border border-[#c7c4d8]/20 text-xs text-[#777587]">
-              No additional specifications configured for this SKU. Stock: {product.stock_quantity} units available.
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT COLUMN: Agent Analysis & Mission Fit (Col 8-12) */}
-        <div className="lg:col-span-5 space-y-5">
-          <div className="glass-panel p-6 rounded-2xl border border-[#4f46e5]/15 space-y-5 shadow-md">
-            <div className="flex items-center justify-between border-b border-[#c7c4d8]/20 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#4f46e5] animate-pulse" />
-                <span className="text-[11px] font-mono font-bold text-[#4f46e5] uppercase tracking-wider">
-                  Agent Analysis
-                </span>
-              </div>
-              <span className="material-symbols-outlined text-xs text-[#777587]">psychology</span>
-            </div>
-
-            {/* Mission Fit */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="font-heading font-bold text-base text-[#0b1c30]">Mission Fit: Optimal</h4>
-                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-[#4f46e5]/10 text-[#4f46e5]">
-                  98% Match
-                </span>
-              </div>
-              <p className="text-xs text-[#464555] leading-relaxed">
-                Evaluated against mission goal: <strong className="text-[#0b1c30]">"{missionGoal}"</strong>.
-                This item strictly complies with category allowances, verified inventory checks, and spending headroom.
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                {product.name}
+              </h1>
+              <p className="text-sm text-slate-600 leading-relaxed max-w-2xl">
+                {product.description}
               </p>
             </div>
 
-            {/* Budget Impact Visualization */}
-            <div className="p-4 rounded-xl bg-white border border-[#c7c4d8]/20 space-y-3">
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-[#777587] uppercase font-bold text-[10px]">Budget Impact</span>
-                <span className="text-[#464555]">Authority: ₹{(authorityPaise / 100).toFixed(0)}</span>
+            {/* Hardware Architecture Grid */}
+            <div className="pt-6 border-t border-slate-100">
+              <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-4">
+                Verified Hardware Specifications
+              </h4>
+
+              {product.attributes && Object.keys(product.attributes).length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries(product.attributes).map(([key, val], idx) => {
+                    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+                    const formattedVal = Array.isArray(val) ? val.join(', ') : typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
+
+                    return (
+                      <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                        <div className="text-[10px] font-mono text-slate-400 uppercase font-semibold">
+                          {formattedKey}
+                        </div>
+                        <div className="text-xs font-bold text-slate-900 truncate" title={formattedVal}>
+                          {formattedVal}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase font-semibold">Inventory</div>
+                    <div className="text-xs font-bold text-slate-900">{product.stock_quantity} units ready</div>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase font-semibold">Settlement</div>
+                    <div className="text-xs font-bold text-emerald-600">Instant HMAC lock</div>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase font-semibold">Condition</div>
+                    <div className="text-xs font-bold text-slate-900">Brand New OEM</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Policy Envelope & Add Action */}
+        <div className="lg:col-span-4 space-y-5">
+          <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm space-y-6">
+            <div>
+              <div className="text-[10px] font-mono text-slate-400 uppercase">Authoritative Price</div>
+              <div className="text-3xl font-bold font-mono text-slate-900 tracking-tight mt-1">
+                ₹{priceRupees}
+              </div>
+            </div>
+
+            {/* Budget Impact Card */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Headroom Utilization</span>
+                <span className="font-mono font-bold text-slate-900">{spendPercentage}%</span>
               </div>
 
-              <div className="w-full h-2 rounded-full bg-[#eff4ff] overflow-hidden border border-[#c7c4d8]/20">
+              <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${spendPercentage > 100 ? 'bg-[#ba1a1a]' : 'bg-[#4f46e5]'}`}
-                  style={{ width: `${Math.min(100, spendPercentage)}%` }}
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                  style={{ width: `${spendPercentage}%` }}
                 />
               </div>
 
-              <div className="flex justify-between text-xs font-mono pt-1">
-                <div>
-                  <div className="text-[10px] text-[#777587]">Projected Spend</div>
-                  <div className="font-bold text-[#0b1c30]">₹{priceRupees}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] text-[#006c49]">Remaining Buffer</div>
-                  <div className="font-bold text-[#006c49]">₹{remainingRupees}</div>
-                </div>
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+                <span>Remaining Headroom:</span>
+                <span className="text-emerald-700 font-bold">₹{remainingRupees}</span>
               </div>
             </div>
 
-            {/* Compliance Verification List */}
-            <div className="space-y-2 text-xs">
-              <div className="text-[10px] font-mono font-bold text-[#777587] uppercase tracking-wider">
-                Policy Compliance Status
-              </div>
-              <div className="space-y-1.5 text-[#464555]">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm text-[#10b981]">check_circle</span>
-                  Category Whitelisted ({product.category})
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm text-[#10b981]">check_circle</span>
-                  HMAC-SHA256 Authoritative Catalog Record
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm text-[#10b981]">check_circle</span>
-                  Inventory Confirmed ({product.stock_quantity} available)
-                </div>
-              </div>
-            </div>
-
-            {/* Price and Add CTA */}
-            <div className="pt-3 border-t border-[#c7c4d8]/20 flex items-center justify-between">
-              <div>
-                <div className="font-heading font-bold text-2xl text-[#0b1c30]">₹{priceRupees}</div>
-                <div className="text-[10px] text-[#777587]">Authoritative Server Pricing</div>
-              </div>
-
+            <div className="space-y-3 pt-2">
               <button
                 onClick={handleAddAndBack}
-                className="bg-[#4f46e5] hover:bg-[#3525cd] text-white px-5 py-2.5 rounded-xl font-heading font-semibold text-xs transition flex items-center gap-1.5 shadow-sm"
+                disabled={product.stock_quantity <= 0}
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition disabled:bg-slate-200 disabled:text-slate-400 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
-                Add to Mission
+                <Plus className="w-4 h-4" />
+                Add to Cart & Return
+              </button>
+
+              <button
+                onClick={() => setSelectedProductDetail(null)}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition cursor-pointer"
+              >
+                Continue Browsing
               </button>
             </div>
           </div>

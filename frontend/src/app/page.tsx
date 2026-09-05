@@ -99,8 +99,8 @@ function AgentPayContent() {
                 : 'text-[#464555] hover:bg-[#eff4ff] hover:text-[#0b1c30]'
             }`}
           >
-            <span className="material-symbols-outlined text-base">explore</span>
-            Catalog
+            <span className="material-symbols-outlined text-base">storefront</span>
+            Sales Store
           </button>
 
           <button
@@ -246,26 +246,35 @@ function AgentPayContent() {
                   {/* Right Sidebar Column (Dynamic Database-Backed State) */}
                   <div className="lg:col-span-4 space-y-5">
                     {/* Real Available Authority Widget */}
-                    <div className="p-6 rounded-2xl bg-[#3525cd] text-white space-y-4 shadow-md">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-white/80">Available Authority</span>
-                        <span className="material-symbols-outlined text-white/80 text-lg">account_balance</span>
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-[#1e1b4b] via-[#0f172a] to-[#020617] text-white space-y-4 shadow-xl border border-indigo-500/30 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+                      <div className="flex items-center justify-between relative z-10">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-300 font-bold">
+                          Policy Spending Boundary
+                        </span>
+                        <span className="material-symbols-outlined text-indigo-300 text-lg">account_balance</span>
                       </div>
-                      <div>
-                        <div className="font-heading font-bold text-2xl">
+                      <div className="relative z-10">
+                        <div className="text-[11px] font-mono text-indigo-200/70">Total Settled Volume</div>
+                        <div className="font-heading font-bold text-2xl text-white tracking-tight">
                           ₹{(spentPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}{' '}
-                          <span className="text-sm font-normal text-white/70">
-                            / ₹{(maxSpendPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+                          <span className="text-sm font-normal text-indigo-200/60">
+                            (Cap: ₹{(maxSpendPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })})
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-white/20 rounded-full mt-3 overflow-hidden">
-                          <div className="h-full bg-[#10b981] rounded-full transition-all" style={{ width: `${percentUsed}%` }} />
+                        <div className="w-full h-1.5 bg-slate-800/80 rounded-full mt-3 overflow-hidden border border-slate-700/50">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              percentUsed > 90 ? 'bg-rose-500' : percentUsed > 70 ? 'bg-amber-500' : 'bg-emerald-400'
+                            }`}
+                            style={{ width: `${Math.min(Math.max(percentUsed, 0), 100)}%` }}
+                          />
                         </div>
                       </div>
-                      <div className="flex justify-between text-[11px] font-mono text-white/80 pt-1">
-                        <span>Database Policy: {policy?.id || 'policy_demo'}</span>
-                        <span className="font-bold text-[#10b981]">
-                          ₹{(headroomPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })} Headroom
+                      <div className="flex justify-between text-[11px] font-mono text-indigo-200/80 pt-1 relative z-10">
+                        <span>Policy: {policy?.id || 'policy_demo'}</span>
+                        <span className="font-bold text-emerald-400">
+                          ₹{(headroomPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })} Remaining
                         </span>
                       </div>
                     </div>
@@ -290,21 +299,32 @@ function AgentPayContent() {
                         </div>
                       ) : (
                         <div className="space-y-2 text-xs">
-                          {recentTransactions.slice(0, 3).map((evt, idx) => (
-                            <div key={idx} className="flex justify-between items-center py-1">
-                              <div>
-                                <div className="font-semibold text-[#0b1c30]">
-                                  {evt.payload?.actor || 'Autonomous Procurement'}
+                          {recentTransactions.slice(0, 3).map((evt, idx) => {
+                            const rawDate = evt.created_at || evt.timestamp;
+                            let formattedDate = 'Recent';
+                            if (rawDate) {
+                              const d = new Date(rawDate);
+                              if (!isNaN(d.getTime())) {
+                                formattedDate = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + d.toLocaleDateString();
+                              }
+                            }
+
+                            return (
+                              <div key={idx} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
+                                <div>
+                                  <div className="font-semibold text-[#0b1c30]">
+                                    {evt.payload?.actor || 'Autonomous Procurement'}
+                                  </div>
+                                  <div className="text-[10px] text-[#777587] font-mono">
+                                    {formattedDate}
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-[#777587]">
-                                  {new Date(evt.timestamp).toLocaleDateString()}
-                                </div>
+                                <span className="font-mono font-bold text-[#ba1a1a]">
+                                  -₹{((evt.payload?.amount || 0) / 100).toLocaleString('en-IN')}
+                                </span>
                               </div>
-                              <span className="font-mono font-bold text-[#ba1a1a]">
-                                -₹{((evt.payload?.amount || 0) / 100).toFixed(0)}
-                              </span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

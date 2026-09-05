@@ -1,7 +1,6 @@
-'use client';
-
 import React, { useEffect, useState } from 'react';
 import { useMission } from '@/lib/mission-context';
+import { SimulatedRazorpayModal } from './SimulatedRazorpayModal';
 
 export function TransactionGuardianModal() {
   const {
@@ -17,10 +16,12 @@ export function TransactionGuardianModal() {
     authorizeAndExecute,
     latestRun,
     policy,
+    setMissionFlowState,
   } = useMission();
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showTechnicalProof, setShowTechnicalProof] = useState(false);
+  const [isRazorpayModalOpen, setIsRazorpayModalOpen] = useState(false);
 
   // Always trigger fresh policy evaluation when modal opens with active quote
   useEffect(() => {
@@ -42,6 +43,11 @@ export function TransactionGuardianModal() {
 
   const handleAuthorize = async () => {
     setErrorMsg(null);
+    setIsRazorpayModalOpen(true);
+  };
+
+  const handleRazorpaySuccess = async () => {
+    setIsRazorpayModalOpen(false);
     try {
       await authorizeAndExecute();
     } catch (err: any) {
@@ -247,28 +253,55 @@ export function TransactionGuardianModal() {
               Cancel
             </button>
 
-            {!isBlocked && (
+            {latestRun?.status === 'COMPLETED' || latestRun?.execution_result ? (
               <button
-                onClick={handleAuthorize}
-                disabled={executingCheckout || evaluatingPolicy}
-                className="bg-[#4f46e5] hover:bg-[#3525cd] text-white font-heading font-semibold text-xs px-6 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition disabled:opacity-50"
+                onClick={() => {
+                  setIsGuardianOpen(false);
+                  setMissionFlowState('completed');
+                }}
+                className="bg-[#10b981] hover:bg-[#059669] text-white font-heading font-semibold text-xs px-6 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition"
               >
-                {executingCheckout ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Executing Razorpay Test Checkout...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-sm">fingerprint</span>
-                    <span>Authorize & Execute with Razorpay</span>
-                  </>
-                )}
+                <span className="material-symbols-outlined text-sm">receipt_long</span>
+                <span>View Completed Receipt</span>
               </button>
+            ) : (
+              !isBlocked && (
+                <button
+                  onClick={handleAuthorize}
+                  disabled={executingCheckout || evaluatingPolicy}
+                  className="bg-[#4f46e5] hover:bg-[#3525cd] text-white font-heading font-semibold text-xs px-6 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition disabled:opacity-50"
+                >
+                  {executingCheckout ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Executing Razorpay Test Checkout...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">fingerprint</span>
+                      <span>
+                        {policyDecision?.decision === 'REQUIRE_CONFIRMATION'
+                          ? 'Confirm & Execute with Razorpay'
+                          : 'Authorize & Execute with Razorpay'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              )
             )}
           </div>
         </div>
       </div>
+
+      {/* Simulated Live Razorpay Checkout Modal */}
+      <SimulatedRazorpayModal
+        isOpen={isRazorpayModalOpen}
+        onClose={() => setIsRazorpayModalOpen(false)}
+        orderId={activeQuote?.quote_id || 'order_rzp_live_test'}
+        amountPaise={totalPaise}
+        productName={cart[0]?.name || 'Autonomous Purchase'}
+        onPaymentSuccess={handleRazorpaySuccess}
+      />
     </div>
   );
 }

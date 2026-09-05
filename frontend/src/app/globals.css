@@ -4,35 +4,32 @@
 
 @layer utilities {
   .glass-panel {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(79, 70, 229, 0.12);
-    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.04);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   }
 
   .authority-envelope {
-    border: 1px solid rgba(79, 70, 229, 0.12);
-    box-shadow: 0 4px 24px rgba(79, 70, 229, 0.06);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     background-color: #ffffff;
   }
 
   .guardian-proof-bg {
-    background: rgba(16, 185, 129, 0.08);
+    background: #f8fafc;
   }
 
   .bg-pattern {
-    background-image: radial-gradient(rgba(79, 70, 229, 0.06) 1px, transparent 1px);
+    background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
     background-size: 24px 24px;
   }
 
   .node-active-glow {
-    box-shadow: 0 0 15px rgba(79, 70, 229, 0.5), 0 0 30px rgba(79, 70, 229, 0.2);
-    border-color: rgba(79, 70, 229, 0.9) !important;
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #4f46e5;
   }
 
   .node-passed-glow {
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+    box-shadow: 0 0 0 1px #e2e8f0;
   }
 }
 

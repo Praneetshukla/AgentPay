@@ -254,7 +254,11 @@ export function MissionHistoryLedger() {
                 </div>
                 <div>
                   <span className="text-[#777587] text-[10px] uppercase font-bold">Timestamp</span>
-                  <div className="text-[#0b1c30] mt-0.5">{selectedEvent.timestamp ? new Date(selectedEvent.timestamp).toLocaleString() : 'N/A'}</div>
+                  <div className="text-[#0b1c30] mt-0.5">
+                    {selectedEvent.created_at || selectedEvent.timestamp
+                      ? new Date(selectedEvent.created_at || selectedEvent.timestamp).toLocaleString('en-IN')
+                      : 'Just now'}
+                  </div>
                 </div>
                 <div>
                   <span className="text-[#777587] text-[10px] uppercase font-bold">Chain Verification</span>

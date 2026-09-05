@@ -158,24 +158,28 @@ export function MerchantGrowthView() {
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-sm">check_circle</span> With AgentPay Engine
                 </span>
-                <span className="text-[10px] font-mono uppercase">Optimized</span>
+                <span className="text-[10px] font-mono uppercase font-bold text-[#006c49]">Active Protection</span>
               </div>
               <div className="space-y-2 text-xs text-[#464555]">
                 <div className="flex justify-between py-1 border-b border-[#006c49]/10">
                   <span>Preserved GMV via Recovery:</span>
                   <span className="font-mono font-bold text-[#006c49]">
-                    +₹{(preservedGmvPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+                    {preservedGmvPaise > 0
+                      ? `+₹${(preservedGmvPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`
+                      : 'Active (Auto-Substitute Enabled)'}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-[#006c49]/10">
                   <span>Incremental Cross-Sell Captured:</span>
                   <span className="font-mono font-bold text-[#4f46e5]">
-                    +₹{(incrementalRevenuePaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+                    {incrementalRevenuePaise > 0
+                      ? `+₹${(incrementalRevenuePaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`
+                      : 'Active (Headroom-Bounded)'}
                   </span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span>Chargeback & Excess Breach Loss:</span>
-                  <span className="font-mono font-bold text-[#006c49]">₹0 (Zero Breach)</span>
+                  <span className="font-mono font-bold text-[#006c49]">₹0 (100% Invariant Enforced)</span>
                 </div>
               </div>
             </div>
